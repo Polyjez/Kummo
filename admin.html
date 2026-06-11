@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Admin — Kummo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/kummo.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="logo" href="index.html">Kum<span>mo</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">☰ Menü</button>
+      <nav class="nav-main" id="main-nav">
+        <a href="suchen.html">Aktivitäten</a>
+        <a href="profil.html">Mein Profil</a>
+        <a href="business.html">Für Anbieter</a>
+        <a href="admin.html" aria-current="page">Admin</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container" style="padding:2rem 0 4rem">
+    <h1>Admin-Dashboard</h1>
+    <p>CRM-Übersicht: Anbieter, Aktivitäten, Umsatz</p>
+
+    <div class="dashboard-stats">
+      <div class="stat-card"><strong id="admin-business-count">0</strong><span>Anbieter</span></div>
+      <div class="stat-card"><strong id="admin-activity-count">0</strong><span>Aktivitäten</span></div>
+      <div class="stat-card"><strong id="admin-booking-count">0</strong><span>Buchungen</span></div>
+      <div class="stat-card"><strong id="admin-revenue">0 €</strong><span>Umsatz (Demo)</span></div>
+    </div>
+
+    <section class="section" style="padding-top:0">
+      <h2>Anbieter & Umsatz</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>E-Mail</th><th>Aktivitäten</th><th>Umsatz</th></tr></thead>
+          <tbody id="admin-businesses"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <h2>Alle Reservierungen</h2>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>ID</th><th>Anbieter</th><th>Aktivität</th><th>Kunde</th><th>Datum</th><th>Status</th><th>Betrag</th></tr></thead>
+          <tbody id="admin-reservations"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p class="footer-bottom container">© 2026 Kummo</p>
+  </footer>
+
+  <script src="js/app.js"></script>
+</body>
+</html>

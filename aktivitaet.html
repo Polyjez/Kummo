@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aktivität — Kummo</title>
+  <!-- Charge le SDK Supabase UNIQUEMENT ici (une seule fois) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/kummo.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="logo" href="index.html">Kum<span>mo</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">☰ Menü</button>
+      <nav class="nav-main" id="main-nav">
+        <a href="suchen.html">Aktivitäten</a>
+        <a href="profil.html">Mein Profil</a>
+        <a href="business.html">Für Anbieter</a>
+        <a href="admin.html">Admin</a>
+        <a href="#" id="logout-btn" style="display: none;">Abmelden</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container" id="activity-detail">
+    <p class="empty-state">Aktivität wird geladen…</p>
+  </main>
+
+  <footer class="site-footer">
+    <p class="footer-bottom container"><a href="suchen.html" style="color:var(--mint)">← Zurück zur Suche</a></p>
+  </footer>
+
+  <button type="button" class="chat-fab" id="chat-fab" aria-label="Chat öffnen">💬</button>
+  <div class="chat-panel" id="chat-panel" role="region" aria-label="Hilfe-Chat">
+    <strong>Kummo Hilfe</strong>
+    <div class="chat-messages" id="chat-messages"></div>
+    <input type="text" id="chat-input" placeholder="z. B. Wie buche ich?" aria-label="Ihre Frage">
+    <button type="button" class="btn btn-sm btn-primary" id="chat-send" style="margin-top:0.5rem;width:100%">Senden</button>
+  </div>
+
+  <!-- Initialisation de Supabase (UNIQUEMENT ici) -->
+  <script>
+    // Initialise Supabase une seule fois
+    window.supabase = window.supabase.createClient(
+      'https://xusuvidhmuyzpfrtxutd.supabase.co',
+      'sb_publishable_b1E4qrzlctLblwro4yoCOw_tGVc3EtT'
+    );
+  </script>
+
+  <!-- Charge app.js (qui utilise window.supabase) -->
+  <script src="js/app.js" defer></script>
+</body>
+</html>

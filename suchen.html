@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aktivitäten suchen — Kummo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/kummo.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="logo" href="index.html">Kum<span>mo</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">☰ Menü</button>
+      <nav class="nav-main" id="main-nav">
+        <a href="suchen.html" aria-current="page">Aktivitäten</a>
+        <a href="profil.html">Mein Profil</a>
+        <a href="business.html">Für Anbieter</a>
+        <a href="admin.html">Admin</a>
+        <a href="#" id="logout-btn" style="display: none;">Abmelden</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container">
+    <h1 style="padding-top:1.5rem">Aktivitäten in Berlin</h1>
+    <p>Rasteransicht mit Karte — Filter links, Ergebnisse rechts</p>
+
+    <div class="page-layout">
+      <aside class="filters-sidebar" aria-label="Filter">
+        <h2>Filter</h2>
+        <form id="filter-form">
+          <div class="filter-group">
+            <label for="f-q">Stichwort</label>
+            <input type="search" id="f-q" name="q" placeholder="Suche…">
+          </div>
+          <div class="filter-group">
+            <label for="f-age">Altersgruppe</label>
+            <select id="f-age" name="age">
+              <option value="all">Alle</option>
+              <option value="0-5">0–5 Jahre</option>
+              <option value="6-12">6–12 Jahre</option>
+              <option value="13-18">13–18 Jahre</option>
+              <option value="senioren">Senioren</option>
+              <option value="familie">Ganze Familie</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="f-cat">Kategorie</label>
+            <select id="f-cat" name="category">
+              <option value="all">Alle</option>
+              <option value="kunst">🎨 Kunst</option>
+              <option value="sport">⚽ Sport</option>
+              <option value="kochen">👨‍🍳 Kochen</option>
+              <option value="musik">🎵 Musik</option>
+              <option value="natur">🌿 Natur</option>
+              <option value="theater">🎭 Theater</option>
+              <option value="wissenschaft">🔬 Wissenschaft</option>
+              <option value="senioren">☕ Senioren</option>
+            </select>
+          </div>
+          <div class="filter-group">
+            <label for="f-max">Max. Preis (€)</label>
+            <input type="number" id="f-max" name="maxPrice" min="0" step="1">
+          </div>
+          <button type="submit" class="btn btn-primary" style="width:100%">Filter anwenden</button>
+        </form>
+      </aside>
+
+      <div>
+        <div class="map-panel" role="img" aria-label="Karte Berlin">
+          <div class="map-placeholder" id="map-hint">Karte wird geladen…</div>
+        </div>
+        <div class="activity-grid" id="search-results"></div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p class="footer-bottom container">© 2026 Kummo</p>
+  </footer>
+
+  <button type="button" class="chat-fab" id="chat-fab" aria-label="Chat">💬</button>
+  <div class="chat-panel" id="chat-panel">
+    <strong>Kummo Hilfe</strong>
+    <div class="chat-messages" id="chat-messages"></div>
+    <input type="text" id="chat-input" placeholder="Ihre Frage" aria-label="Frage">
+    <button type="button" class="btn btn-sm btn-primary" id="chat-send" style="margin-top:0.5rem;width:100%">Senden</button>
+  </div>
+
+  <!-- Charger app.js (utilise window.supabase déjà initialisé dans index.html) -->
+  <script src="js/app.js" defer></script>
+</body>
+</html>

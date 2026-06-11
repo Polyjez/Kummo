@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Anbieter-Dashboard — Kummo</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/kummo.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="logo" href="index.html">Kum<span>mo</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">☰ Menü</button>
+      <nav class="nav-main" id="main-nav">
+        <a href="suchen.html">Aktivitäten</a>
+        <a href="profil.html">Mein Profil</a>
+        <a href="business.html" aria-current="page">Für Anbieter</a>
+        <a href="admin.html">Admin</a>
+        <a href="#" id="logout-btn" style="display: none;">Abmelden</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container" style="padding:2rem 0 4rem">
+    <!-- Formulaire de connexion -->
+    <div id="login-section" style="max-width: 500px; margin: 0 auto 2rem;">
+      <h2>Anbieter-Anmeldung</h2>
+      <form id="business-login-form" onsubmit="event.preventDefault(); loginBusiness();">
+        <div class="form-row">
+          <label>E-Mail
+            <input type="email" id="login-email" required placeholder="z. B. info@lilafarbe-berlin.de">
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Passwort
+            <input type="password" id="login-password" required>
+          </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Anmelden</button>
+        <p id="login-error" style="color: var(--terracotta); margin-top: 1rem;"></p>
+      </form>
+    </div>
+
+    <!-- Contenu du dashboard -->
+    <div id="dashboard-content" style="display: none;">
+      <h1>Anbieter-Dashboard</h1>
+      <p id="business-name">Demo: <strong>Geschäftsname</strong> — Aktivitäten & Buchungen verwalten</p>
+
+      <div class="dashboard-stats">
+        <div class="stat-card">
+          <strong id="biz-activity-count">0</strong>
+          <span>Aktivitäten</span>
+        </div>
+        <div class="stat-card">
+          <strong id="biz-booking-count">0</strong>
+          <span>Reservierungen</span>
+        </div>
+      </div>
+
+      <section class="section" style="padding-top:0">
+        <h2>Neue Aktivität hinzufügen</h2>
+        <form class="search-panel" style="max-width:640px" onsubmit="event.preventDefault(); addActivity();">
+          <div class="form-row">
+            <label>Titel
+              <input id="activity-title" required>
+            </label>
+          </div>
+          <div class="form-row">
+            <label>Beschreibung
+              <textarea id="activity-description" rows="3" style="width:100%;font-family:inherit;font-size:1.125rem;padding:0.65rem" required></textarea>
+            </label>
+          </div>
+          <div class="search-grid">
+            <div class="form-row">
+              <label>Preis (€)
+                <input type="number" id="activity-price" min="0" step="0.01" required>
+              </label>
+            </div>
+            <div class="form-row">
+              <label>Max. Teilnehmer
+                <input type="number" id="activity-max-participants" min="1" required>
+              </label>
+            </div>
+            <div class="form-row">
+              <label>Dauer
+                <input type="text" id="activity-duration" placeholder="z.B. 1,5 Stunden" required>
+              </label>
+            </div>
+            <div class="form-row">
+              <label>Altersgruppe
+                <input type="text" id="activity-age-group" placeholder="z.B. 6-12 Jahre" required>
+              </label>
+            </div>
+          </div>
+          <div class="form-row">
+            <label>Foto-URL (optional)
+              <input type="url" id="activity-photo" placeholder="https://beispiel.de/bild.jpg">
+            </label>
+          </div>
+          <div class="form-row">
+            <label>Verfügbarkeiten (durch Komma getrennt)
+              <input type="text" id="activity-availability" placeholder="z.B. 15.06.2026 14:00-16:00, 20.06.2026 10:00-12:00">
+            </label>
+          </div>
+          <button type="submit" class="btn btn-primary">Aktivität speichern</button>
+        </form>
+      </section>
+
+      <section class="section">
+        <h2>Meine Aktivitäten</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Titel</th>
+                <th>Preis</th>
+                <th>Max. Teilnehmer</th>
+                <th>Altersgruppe</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="biz-activities"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section class="section">
+        <h2>Reservierungen</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Aktivität</th>
+                <th>Kunde</th>
+                <th>E-Mail</th>
+                <th>Termin</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="biz-reservations"></tbody>
+          </table>
+        </div>
+        <p style="margin-top:1rem;font-size:0.95rem">Kalender-Sync: Bookingkit/Regiondo via Pipedream/Zapier</p>
+      </section>
+    </div>
+  </main>
+
+  <footer class="site-footer">
+    <p class="footer-bottom container">© 2026 Kummo</p>
+  </footer>
+
+  <!-- Initialisation de Supabase (UNIQUEMENT ici) -->
+  <script>
+    // Initialise Supabase une seule fois
+    window.supabase = window.supabase.createClient(
+      'https://xusuvidhmuyzpfrtxutd.supabase.co',
+      'sb_publishable_b1E4qrzlctLblwro4yoCOw_tGVc3EtT'
+    );
+  </script>
+
+  <!-- Code spécifique à business.html -->
+  <script>
+    // =============================================
+    // 1. Fonction de connexion
+    // =============================================
+    async function loginBusiness() {
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+
+      const { user, error } = await window.supabase.auth.signIn({
+        email,
+        password
+      });
+
+      if (error) {
+        document.getElementById('login-error').textContent = error.message;
+        return;
+      }
+
+      // Vérifie si l'utilisateur est un magasin
+      const { data: shop, error: shopError } = await window.supabase
+        .from('public.shops')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+
+      if (shopError || !shop) {
+        document.getElementById('login-error').textContent = 'Kein Anbieter-Konto mit dieser E-Mail gefunden.';
+        await window.supabase.auth.signOut();
+        return;
+      }
+
+      // Stocke les infos de session
+      localStorage.setItem('user_type', 'business');
+      localStorage.setItem('user_id', user.id);
+      localStorage.setItem('magasin_connecte', user.id);
+
+      // Affiche le dashboard
+      document.getElementById('login-section').style.display = 'none';
+      document.getElementById('dashboard-content').style.display = 'block';
+      document.getElementById('business-name').innerHTML = `Demo: <strong>${shop.nom}</strong> — Aktivitäten & Buchungen verwalten`;
+
+      // Charge les activités
+      await loadDashboardData(user.id);
+    }
+
+    // =============================================
+    // 2. Charge les données du dashboard
+    // =============================================
+    async function loadDashboardData(shopId) {
+      const { data: activities, error } = await window.supabase
+        .from('public.activities')
+        .select('*')
+        .eq('shop_id', shopId);
+
+      if (error) {
+        console.error('Erreur:', error);
+        return;
+      }
+
+      document.getElementById('biz-activity-count').textContent = activities.length;
+
+      const tbody = document.getElementById('biz-activities');
+      tbody.innerHTML = activities.map(activity => `
+        <tr>
+          <td>${activity.titre}</td>
+          <td>${activity.prix}€</td>
+          <td>${activity.participants_max}</td>
+          <td>${activity.age_group}</td>
+          <td><a href="aktivitaet.html?id=${activity.id}" class="btn btn-sm btn-outline">Ansehen</a></td>
+        </tr>
+      `).join('');
+    }
+
+    // =============================================
+    // 3. Ajouter une activité
+    // =============================================
+    async function addActivity() {
+      const shopId = localStorage.getItem('magasin_connecte');
+      if (!shopId) {
+        alert('Bitte melden Sie sich zuerst an.');
+        return;
+      }
+
+      const newActivity = {
+        shop_id: shopId,
+        titre: document.getElementById('activity-title').value,
+        description: document.getElementById('activity-description').value,
+        prix: parseFloat(document.getElementById('activity-price').value),
+        participants_max: parseInt(document.getElementById('activity-max-participants').value),
+        duree: document.getElementById('activity-duration').value,
+        age_group: document.getElementById('activity-age-group').value,
+        photo: document.getElementById('activity-photo').value || "https://via.placeholder.com/400x250",
+        disponibilites: document.getElementById('activity-availability').value.split(',').map(d => d.trim())
+      };
+
+      const { error } = await window.supabase
+        .from('public.activities')
+        .insert([newActivity]);
+
+      if (error) {
+        alert(`Fehler: ${error.message}`);
+        return;
+      }
+
+      alert(`Aktivität "${newActivity.titre}" wurde gespeichert!`);
+      await loadDashboardData(shopId);
+
+      // Réinitialise le formulaire
+      document.getElementById('business-login-form').reset();
+      document.querySelector('form[onsubmit*="addActivity"]').reset();
+    }
+
+    // =============================================
+    // 4. Déconnexion
+    // =============================================
+    async function logout() {
+      await window.supabase.auth.signOut();
+      localStorage.removeItem('user_type');
+      localStorage.removeItem('user_id');
+      localStorage.removeItem('magasin_connecte');
+      window.location.href = 'index.html';
+    }
+
+    // =============================================
+    // 5. Met à jour le bouton de déconnexion
+    // =============================================
+    function updateLogoutButton() {
+      const logoutBtn = document.getElementById('logout-btn');
+      if (!logoutBtn) return;
+
+      const user = window.supabase.auth.user();
+      logoutBtn.style.display = user ? 'inline' : 'none';
+      if (user) logoutBtn.onclick = logout;
+    }
+
+    // =============================================
+    // 6. Initialisation au chargement de la page
+    // =============================================
+    document.addEventListener('DOMContentLoaded', async () => {
+      updateLogoutButton();
+
+      const user = window.supabase.auth.user();
+      if (user) {
+        const { data: shop, error } = await window.supabase
+          .from('public.shops')
+          .select('*')
+          .eq('id', user.id)
+          .single();
+
+        if (!error && shop) {
+          document.getElementById('login-section').style.display = 'none';
+          document.getElementById('dashboard-content').style.display = 'block';
+          document.getElementById('business-name').innerHTML = `Demo: <strong>${shop.nom}</strong> — Aktivitäten & Buchungen verwalten`;
+          await loadDashboardData(user.id);
+        }
+      }
+    });
+  </script>
+
+  <!-- Ne charge PAS app.js ici (pour éviter les conflits) -->
+</body>
+</html>

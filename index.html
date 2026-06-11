@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Kummo — Familienfreundliche Aktivitäten in Berlin entdecken und direkt buchen.">
+  <title>Kummo — Aktivitäten für Familien & Senioren in Berlin</title>
+  <!-- Charge le SDK Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/kummo.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="logo" href="index.html" aria-label="Kummo Startseite">Kum<span>mo</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">☰ Menü</button>
+      <nav class="nav-main" id="main-nav" aria-label="Hauptnavigation">
+        <a href="suchen.html">Aktivitäten</a>
+        <a href="profil.html">Mein Profil</a>
+        <a href="business.html">Für Anbieter</a>
+        <a href="admin.html">Admin</a>
+        <a href="#" id="logout-btn" style="display: none;">Abmelden</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero container">
+      <span class="hero-badge">Kinder · Familien · Senioren</span>
+      <h1>Ein unvergessliches Moment für die ganze Familie</h1>
+      <div class="hero-image-text">
+        <img src="https://images.unsplash.com/photo-1758874960647-f7c2b61e07fa?q=80&w=2664&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
+        alt="Familienaktivitäten in Berlin"
+        style="max-width:50%; height:auto;"
+        class="hero-image">
+        <p>Entdeckt Workshops, Sport und mehr. Findet gemeinsame Momente für Kinder, Eltern und Großeltern. In Sekunden gefunden, in einem Klick gebucht.</p>
+      </div>
+      <div class="hero-cta">
+        <a class="btn btn-primary" href="suchen.html">Aktivitäten finden</a>
+        <a class="btn btn-secondary" href="#so-funktionierts">So funktioniert's</a>
+      </div>
+
+      <form class="search-panel" id="home-search" aria-label="Aktivitäten suchen">
+        <legend>Was möchtet ihr unternehmen?</legend>
+        <div class="search-grid">
+          <label>
+            Stichwort
+            <input type="search" name="q" placeholder="z. B. Malen, Zoo, Töpfern…" autocomplete="off">
+          </label>
+          <label>
+            Altersgruppe
+            <select name="age">
+              <option value="all">Alle</option>
+              <option value="0-5">0–5 Jahre</option>
+              <option value="6-12">6–12 Jahre</option>
+              <option value="13-18">13–18 Jahre</option>
+              <option value="senioren">Senioren</option>
+              <option value="familie">Ganze Familie</option>
+            </select>
+          </label>
+          <label>
+            Kategorie
+            <select name="category">
+              <option value="all">Alle</option>
+              <option value="kunst">🎨 Kunst & DIY</option>
+              <option value="sport">⚽ Sport</option>
+              <option value="natur">🌿 Natur & Outdoor</option>
+              <option value="wissenschaft">🔬 Wissenschaft & Lernen</option>
+              <option value="geburtstagsfeier">🎉 Geburtstagsfeier</option>
+              <option value="feriencamp">🎵 Ferien-Camp</option>
+            </select>
+          </label>
+          <label>
+            Max. Preis (€)
+            <input type="number" name="maxPrice" min="0" step="1" placeholder="z. B. 25">
+          </label>
+        </div>
+        <div class="search-actions">
+          <button type="submit" class="btn btn-primary">Suchen</button>
+        </div>
+      </form>
+    </section>
+
+    <section class="categories container">
+      <h2>Beliebte Kategorien</h2>
+      <div class="category-chips" id="category-chips">
+        <a class="chip" href="suchen.html?category=kunst" data-category="kunst">🎨 Kunst & DIY</a>
+        <a class="chip" href="suchen.html?category=sport" data-category="sport">⚽ Sport</a>
+        <a class="chip" href="suchen.html?category=natur" data-category="natur">🌿 Natur & Outdoor</a>
+        <a class="chip" href="suchen.html?category=wissenschaft" data-category="wissenschaft">🔬 Wissenschaft & Lernen</a>
+        <a class="chip" href="suchen.html?category=geburtstagsfeier" data-category="geburtstagsfeier">🎉 Geburtstagsfeier</a>
+        <a class="chip" href="suchen.html?category=feriencamp" data-category="feriencamp">🎵 Ferien-Camp</a>
+      </div>
+    </section>
+
+    <section class="section container" aria-labelledby="featured-heading">
+      <div class="section-header">
+        <h2 id="featured-heading">Empfohlene Aktivitäten</h2>
+        <p>Handverlesen für euren nächsten Familienausflug in Berlin</p>
+      </div>
+      <div class="activity-grid" id="featured-activities"></div>
+      <p style="text-align:center;margin-top:2rem">
+        <a class="btn btn-outline" href="suchen.html">Alle Aktivitäten anzeigen</a>
+      </p>
+    </section>
+
+    <section class="section container" id="so-funktionierts" aria-labelledby="steps-heading">
+      <div class="section-header">
+        <h2 id="steps-heading">So funktioniert Kummo</h2>
+        <p>In drei einfachen Schritten — auch ohne Technik-Vorkenntnisse</p>
+      </div>
+      <div class="steps">
+        <article class="step-card">
+          <span class="step-num" aria-hidden="true">1</span>
+          <h3>Aktivität finden</h3>
+          <p>Sucht nach Alter, Preis, Ort und Kategorie. Große Schrift, klare Filter.</p>
+        </article>
+        <article class="step-card">
+          <span class="step-num" aria-hidden="true">2</span>
+          <h3>Mit einem Klick buchen</h3>
+          <p>Direkt auf Kummo — ohne Weiterleitung. Bestätigung per E-Mail.</p>
+        </article>
+        <article class="step-card">
+          <span class="step-num" aria-hidden="true">3</span>
+          <h3>Gemeinsam genießen</h3>
+          <p>Erinnerung 24 Stunden vorher. Danach könnt ihr eine Bewertung hinterlassen.</p>
+        </article>
+      </div>
+    </section>
+
+    <section class="section container" aria-labelledby="biz-heading">
+      <div class="section-header">
+        <h2 id="biz-heading">Für Anbieter</h2>
+        <p>Workshops, Studios und Veranstalter — ohne technischen Aufwand</p>
+      </div>
+      <div class="steps">
+        <article class="step-card">
+          <span class="step-num" aria-hidden="true">1</span>
+          <h3>Angebot einstellen</h3>
+          <p>Aktivitäten im Dashboard anlegen und bearbeiten.</p>
+        </article>
+        <article class="step-card">
+          <span class="step-num" aria-hidden="true">2</span>
+          <h3>Kalender synchronisieren</h3>
+          <p>Bookingkit oder Regiondo — automatisch, ohne Doppelbuchungen.</p>
+        </article>
+        <article class="step-card">
+          <span class="step-num" aria-hidden="true">3</span>
+          <h3>Buchungen verwalten</h3>
+          <p>Reservierungen und Abrechnungsübersichten auf einen Blick.</p>
+        </article>
+      </div>
+      <p style="text-align:center;margin-top:1.5rem">
+        <a class="btn btn-secondary" href="business.html">Zum Anbieter-Dashboard</a>
+      </p>
+    </section>
+
+    <section class="section container" aria-labelledby="testimonials-heading">
+      <div class="section-header">
+        <h2 id="testimonials-heading">Das sagen Nutzerinnen und Nutzer</h2>
+      </div>
+      <div class="testimonial-grid">
+        <blockquote class="testimonial">
+          <p>„Mit Kummo haben wir in fünf Minuten einen Kurs für unsere Enkel gefunden — ohne komplizierte Webseiten.“</p>
+          <cite>Renate & Klaus, Pankow</cite>
+        </blockquote>
+        <blockquote class="testimonial">
+          <p>„Buchung war klar und schnell. Die Erinnerungs-Mail am Tag davor hat uns sehr geholfen.“</p>
+          <cite>Familie Yilmaz, Neukölln</cite>
+        </blockquote>
+        <blockquote class="testimonial">
+          <p>„Als Anbieter sehe ich alle Buchungen an einem Ort. Spart uns viel Zeit.“</p>
+          <cite>Farbenwerkstatt Kreuzberg</cite>
+        </blockquote>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-grid">
+      <div>
+        <a class="logo" href="index.html" style="color:var(--mint)">Kummo</a>
+        <p>Familienfreundliche Aktivitäten in Berlin — einfach buchen, schöne Erinnerungen schaffen.</p>
+      </div>
+      <div>
+        <h3>Entdecken</h3>
+        <p><a href="suchen.html">Alle Aktivitäten</a></p>
+        <p><a href="profil.html">Mein Profil</a></p>
+      </div>
+      <div>
+        <h3>Anbieter & Admin</h3>
+        <p><a href="business.html">Anbieter-Dashboard</a></p>
+        <p><a href="admin.html">Admin-Bereich</a></p>
+      </div>
+      <div>
+        <h3>Hilfe</h3>
+        <p><a href="mailto:hallo@kummo.de">hallo@kummo.de</a></p>
+        <p>FAQ über den Chat unten rechts</p>
+      </div>
+    </div>
+    <p class="footer-bottom container">© 2026 Kummo · MVP-Prototyp</p>
+  </footer>
+
+  <button type="button" class="chat-fab" id="chat-fab" aria-label="Chat öffnen">💬</button>
+  <div class="chat-panel" id="chat-panel" role="region" aria-label="Hilfe-Chat">
+    <strong>Kummo Hilfe</strong>
+    <div class="chat-messages" id="chat-messages"></div>
+    <input type="text" id="chat-input" placeholder="z. B. Wie buche ich?" aria-label="Ihre Frage">
+    <button type="button" class="btn btn-sm btn-primary" id="chat-send" style="margin-top:0.5rem;width:100%">Senden</button>
+  </div>
+
+  <!-- Initialisation de Supabase (UNIQUEMENT ici) -->
+  <script>
+    // Initialise Supabase une seule fois
+    if (!window.supabase) {
+      window.supabase = supabase.createClient(
+        'https://xusuvidhmuyzpfrtxutd.supabase.co',
+        'sb_publishable_b1E4qrzlctLblwro4yoCOw_tGVc3EtT'
+      );
+    }
+  </script>
+
+  <!-- Charge app.js (qui utilise window.supabase) -->
+  <script src="js/app.js" defer></script>
+</body>
+</html>
