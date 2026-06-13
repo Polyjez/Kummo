@@ -90,7 +90,38 @@
     <button type="button" class="btn btn-sm btn-primary" id="chat-send" style="margin-top:0.5rem;width:100%">Senden</button>
   </div>
 
-  <!-- Charger app.js (utilise window.supabase déjà initialisé dans index.html) -->
-  <script src="js/app.js" defer></script>
+    <!-- Charge le SDK Supabase -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <!-- Initialisation de Supabase et chargement de app.js -->
+  <script>
+    // Attendre que le SDK Supabase soit chargé
+    function loadApp() {
+      if (typeof supabase !== 'undefined') {
+        // Initialiser window.supabase avec createClient
+        window.supabase = supabase.createClient(
+          'https://xusuvhmuyzpfrtxutd.supabase.co',
+          'sb_publishable_b1E4qrzlctLblwro4yoCOw_tGVc3EtT'
+        );
+
+        // Vérifier que window.supabase.from est disponible
+        if (typeof window.supabase.from === 'function') {
+          console.log('Supabase est correctement initialisé !');
+          // Charger app.js une fois que window.supabase est prêt
+          var script = document.createElement('script');
+          script.src = 'js/app.js';
+          document.body.appendChild(script);
+        } else {
+          console.error('window.supabase.from n\'est pas une fonction !');
+        }
+      } else {
+        console.error('Supabase SDK non chargé !');
+        // Réessayer après un court délai
+        setTimeout(loadApp, 100);
+      }
+    }
+
+    // Appeler loadApp pour initialiser Supabase et charger app.js
+    loadApp();
+  </script>
 </body>
 </html>

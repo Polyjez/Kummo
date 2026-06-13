@@ -1,39 +1,57 @@
 // Kummo — Charge les données depuis Supabase et gère toutes les pages
+console.log('app.js est chargé !');
 let magasins = [];
 let activites = [];
 
 function initApp() {
+  console.log('initApp() est appelée');
   if (!window.supabase) {
     console.error("Supabase non initialisé ! Vérifiez que le SDK est chargé dans le HTML.");
     return;
   }
-  loadData();
+  // Vérifier que window.supabase.from est disponible
+  if (typeof window.supabase.from === 'function') {
+    console.log('window.supabase.from est disponible, appel de loadData()');
+    loadData();
+  } else {
+    console.error("window.supabase.from n'est pas une fonction !");
+  }
 }
 
 // =============================================
 // 1. Charge les données depuis Supabase
 // =============================================
 async function loadData() {
+  console.log('loadData() START');
   try {
+    console.log('Début du chargement des données depuis Supabase...');
+
     // ✅ Utiliser window.supabase DIRECTEMENT (sans variable locale)
+    console.log('Envoi de la requête pour les shops...');
     const { data: shopsData, error: shopsError } = await window.supabase
       .from('shops')
       .select('*');
 
+    console.log('Résultat de la requête shops:', { shopsData, shopsError });
+
     if (shopsError) throw shopsError;
 
     // Charge les activités
+    console.log('Envoi de la requête pour les activités...');
     const { data: activitiesData, error: activitiesError } = await window.supabase
       .from('activities')
       .select('*');
+
+    console.log('Résultat de la requête activities:', { activitiesData, activitiesError });
 
     if (activitiesError) throw activitiesError;
 
     magasins = shopsData;
     activites = activitiesData;
+    console.log('Données chargées avec succès:', { magasins, activites });
     initPage();
   } catch (error) {
-    console.error('Daten konnten nicht geladen werden:', error);
+    console.error('Erreur lors du chargement des données:', error);
     showLoadError();
   }
 }
@@ -551,8 +569,9 @@ function updateLogoutButton() {
 // Initialisation finale
 // =============================================
 document.addEventListener('DOMContentLoaded', () => {  // ✅ Pas de paramètre
+  console.log('DOMContentLoaded - initApp() est appelée');
   initNav();
   initChatbot();
-  loadData();  // ✅ Appelle loadData() au lieu de initSupabase()
+  initApp();  // ✅ Appelle initApp() pour vérifier window.supabase avant de charger les données
   updateLogoutButton();
 });
