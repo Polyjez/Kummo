@@ -152,10 +152,11 @@
     <p class="footer-bottom container">© 2026 Kummo</p>
   </footer>
 
-  <!-- Initialisation de Supabase (UNIQUEMENT ici) -->
+  <!-- Charge le SDK Supabase puis initialise le client (UNIQUEMENT ici) -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script>
-    // Initialise Supabase une seule fois
-    window.supabase = window.supabase.createClient(
+    // Initialise Supabase une seule fois (supabase = lib UMD globale)
+    window.supabase = supabase.createClient(
       'https://xusuvidhmuyzpfrtxutd.supabase.co',
       'sb_publishable_b1E4qrzlctLblwro4yoCOw_tGVc3EtT'
     );
@@ -170,7 +171,7 @@
       const email = document.getElementById('login-email').value;
       const password = document.getElementById('login-password').value;
 
-      const { user, error } = await window.supabase.auth.signIn({
+      const { data, error } = await window.supabase.auth.signInWithPassword({
         email,
         password
       });
@@ -180,9 +181,11 @@
         return;
       }
 
+      const user = data.user;
+
       // Vérifie si l'utilisateur est un magasin
       const { data: shop, error: shopError } = await window.supabase
-        .from('public.shops')
+        .from('shops')
         .select('*')
         .eq('id', user.id)
         .single();
@@ -212,7 +215,7 @@
     // =============================================
     async function loadDashboardData(shopId) {
       const { data: activities, error } = await window.supabase
-        .from('public.activities')
+        .from('activities')
         .select('*')
         .eq('shop_id', shopId);
 
@@ -258,7 +261,7 @@
       };
 
       const { error } = await window.supabase
-        .from('public.activities')
+        .from('activities')
         .insert([newActivity]);
 
       if (error) {
@@ -288,11 +291,11 @@
     // =============================================
     // 5. Met à jour le bouton de déconnexion
     // =============================================
-    function updateLogoutButton() {
+    async function updateLogoutButton() {
       const logoutBtn = document.getElementById('logout-btn');
       if (!logoutBtn) return;
 
-      const user = window.supabase.auth.user();
+      const { data: { user } } = await window.supabase.auth.getUser();
       logoutBtn.style.display = user ? 'inline' : 'none';
       if (user) logoutBtn.onclick = logout;
     }
@@ -301,12 +304,12 @@
     // 6. Initialisation au chargement de la page
     // =============================================
     document.addEventListener('DOMContentLoaded', async () => {
-      updateLogoutButton();
+      await updateLogoutButton();
 
-      const user = window.supabase.auth.user();
+      const { data: { user } } = await window.supabase.auth.getUser();
       if (user) {
         const { data: shop, error } = await window.supabase
-          .from('public.shops')
+          .from('shops')
           .select('*')
           .eq('id', user.id)
           .single();

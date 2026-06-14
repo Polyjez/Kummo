@@ -3,6 +3,11 @@ console.log('app.js est chargé !');
 let magasins = [];
 let activites = [];
 
+// Clés localStorage (préférences, réservations, favoris)
+const STORAGE_PREFS = 'kummo_prefs';
+const STORAGE_BOOKINGS = 'kummo_bookings';
+const STORAGE_FAVORITES = 'kummo_favorites';
+
 function initApp() {
   console.log('initApp() est appelée');
   if (!window.supabase) {
@@ -128,9 +133,9 @@ function activityCardHtml(activite) {
           <span class="tag">${a.nom_magasin}</span>
           <span class="tag tag-age">${a.age_group}</span>
         </div>
-        <h3>\${a.titre}</h3>
-        <p>📍 \${a.adresse}</p>
-        <p>💰 \${a.prix} € · 👥 \${a.participants_max} · ⏳ ${a.duree}</p>
+        <h3>${a.titre}</h3>
+        <p>📍 ${a.adresse}</p>
+        <p>💰 ${a.prix} € · 👥 ${a.participants_max} · ⏳ ${a.duree}</p>
         <a class="btn btn-primary btn-sm stretched-link" href="aktivitaet.html?id=${a.id}">Details & Buchen</a>
       </div>
     </article>`;
@@ -212,7 +217,7 @@ function buildSearchUrl(filters) {
     if (v && v !== 'all') params.set(k, v);
   });
   const qs = params.toString();
-  return `suchen.html${qs ? `?\${qs}` : ''}`;
+  return `suchen.html${qs ? `?${qs}` : ''}`;
 }
 
 function initHomeSearch() {
@@ -555,12 +560,13 @@ function logout() {
   window.location.href = 'index.html';
 }
 
-function updateLogoutButton() {
+async function updateLogoutButton() {
   const logoutBtn = document.getElementById('logout-btn');
   if (!logoutBtn) return;
 
-  // Utilise window.supabase (déjà initialisé dans le HTML)
-  const user = window.supabase?.auth?.user();
+  // Utilise window.supabase (déjà initialisé dans le HTML) — API v2
+  const { data } = (await window.supabase?.auth?.getUser()) || { data: {} };
+  const user = data?.user;
   logoutBtn.style.display = user ? 'inline' : 'none';
   if (user) logoutBtn.onclick = logout;
 }
