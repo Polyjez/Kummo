@@ -10,8 +10,8 @@ Kummo is a B2B2C web app for discovering and booking family/senior-friendly acti
 
 - **English** for everything developer-facing: code (identifiers, function/variable names), comments, documentation, commit messages, `console.log` debug output, and test descriptions.
 - **German only for UI** — anything an end user sees: rendered page text, `alert()` messages, button labels, and the German `echo` lines in the launcher scripts.
-- **Exception — DB-mapped field names stay as-is.** Fields that mirror Supabase columns keep their original spelling (`titre`, `prix`, `nom`, `adresse`, `duree`, `age_group`, `participants_max`, `disponibilites`, `type_activites`, `shop_id`). Renaming them would require a database migration. Don't "translate" these in code.
-- Historical note: the code was originally French (e.g. `magasins`→`shops`, `activites`→`activities`, `enrichActivite`→`enrichActivity`); local identifiers have been migrated to English. If you find leftover French in non-DB identifiers or comments, translate it.
+- **DB-mapped field names mirror Supabase columns** (see `schema.sql`): `title`, `price`, `name`, `address`, `duration`, `picture`, `activity_type`, `age_group`, `participants_max`, `shop_id`, etc. These are now English to match the actual columns — keep them spelled exactly as the column. There is **no `disponibilites`/availability column** in the schema; code that referenced it is guarded as optional, and the availability form field on `business.html` is not persisted (pending a product/schema decision).
+- Historical note: the code (and originally the DB columns) was French — `titre`→`title`, `prix`→`price`, `nom`→`name`, `adresse`→`address`, `duree`→`duration`, `photo`→`picture`, `type_activites`→`activity_type` (and earlier `magasins`→`shops`, `activites`→`activities`). All identifiers are now English. If you find leftover French, translate it.
 
 ## Running
 

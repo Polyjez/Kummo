@@ -13,10 +13,10 @@ const clone = (x) => JSON.parse(JSON.stringify(x));
 const shops = [
   {
     id: 's1',
-    nom: 'Lila Farbe',
-    adresse: 'Kreuzberg, Berlin',
-    photo: 'shop.jpg',
-    type_activites: ['Kunst'],
+    name: 'Lila Farbe',
+    address: 'Kreuzberg, Berlin',
+    picture: 'shop.jpg',
+    activity_type: ['Kunst'],
   },
 ];
 
@@ -24,26 +24,24 @@ const activities = [
   {
     id: 'a1',
     shop_id: 's1',
-    titre: 'Van Gogh Malkurs',
+    title: 'Van Gogh Malkurs',
     description: 'Malen wie die Großen',
-    prix: 25,
+    price: 25,
     participants_max: 8,
-    duree: '2 Stunden',
+    duration: '2 Stunden',
     age_group: '6-12 Jahre',
-    photo: 'a1.jpg',
-    disponibilites: ['15.06.2026 14:00'],
+    picture: 'a1.jpg',
   },
   {
     // shop_id points to a missing shop -> exercises the fallback
     id: 'a2',
     shop_id: 's2',
-    titre: 'Fußball Camp',
+    title: 'Fußball Camp',
     description: 'Sport für alle',
-    prix: 50,
+    price: 50,
     participants_max: 20,
-    duree: '3 Stunden',
+    duration: '3 Stunden',
     age_group: '6-12 Jahre',
-    disponibilites: [],
   },
 ];
 
@@ -64,13 +62,13 @@ describe('enrichActivity', () => {
   it('joins the shop via shop_id', () => {
     const e = app.enrichActivity(activities[0]);
     expect(e.shopName).toBe('Lila Farbe');
-    expect(e.adresse).toBe('Kreuzberg, Berlin');
+    expect(e.address).toBe('Kreuzberg, Berlin');
   });
 
   it('uses a fallback when the shop is missing', () => {
     const e = app.enrichActivity(activities[1]);
     expect(e.shopName).toBe('Anbieter unbekannt');
-    expect(e.adresse).toBe('Adresse unbekannt');
+    expect(e.address).toBe('Adresse unbekannt');
   });
 });
 

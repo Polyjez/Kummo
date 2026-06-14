@@ -1,7 +1,8 @@
 // Kummo — loads data from Supabase and drives every page.
-// Note: DB-mapped field names (titre, prix, nom, adresse, age_group,
-// participants_max, duree, disponibilites, shop_id, ...) mirror the Supabase
-// columns and are kept as-is. UI strings stay in German.
+// Field names mirror the Supabase columns (title, price, name, address,
+// activity_type, age_group, participants_max, duration, picture, shop_id, ...).
+// UI strings stay in German. Note: there is no `disponibilites`/availability
+// column in the schema, so that data is guarded as optional.
 console.log('app.js loaded');
 let shops = [];
 let activities = [];
@@ -116,9 +117,9 @@ function enrichActivity(activity) {
   const shop = shops.find((s) => s.id === activity.shop_id);
   return {
     ...activity,
-    adresse: shop ? shop.adresse : 'Adresse unbekannt',
-    shopName: shop ? shop.nom : 'Anbieter unbekannt',
-    photo: activity.photo || (shop ? shop.photo : 'https://via.placeholder.com/400x250'),
+    address: shop ? shop.address : 'Adresse unbekannt',
+    shopName: shop ? shop.name : 'Anbieter unbekannt',
+    picture: activity.picture || (shop ? shop.picture : 'https://via.placeholder.com/400x250'),
     shop,
   };
 }
@@ -130,15 +131,15 @@ function activityCardHtml(activity) {
   const a = enrichActivity(activity);
   return `
     <article class="activity-card">
-      <img src="${a.photo}" alt="${a.titre}" loading="lazy">
+      <img src="${a.picture}" alt="${a.title}" loading="lazy">
       <div class="activity-card-body">
         <div class="activity-meta">
           <span class="tag">${a.shopName}</span>
           <span class="tag tag-age">${a.age_group}</span>
         </div>
-        <h3>${a.titre}</h3>
-        <p>📍 ${a.adresse}</p>
-        <p>💰 ${a.prix} € · 👥 ${a.participants_max} · ⏳ ${a.duree}</p>
+        <h3>${a.title}</h3>
+        <p>📍 ${a.address}</p>
+        <p>💰 ${a.price} € · 👥 ${a.participants_max} · ⏳ ${a.duration}</p>
         <a class="btn btn-primary btn-sm stretched-link" href="aktivitaet.html?id=${a.id}">Details & Buchen</a>
       </div>
     </article>`;
@@ -171,7 +172,7 @@ function filterActivities(filters) {
     const q = (filters.q || '').toLowerCase().trim();
 
     if (q) {
-      const haystack = `${activity.titre} ${activity.description} ${enriched.shopName}`.toLowerCase();
+      const haystack = `${activity.title} ${activity.description} ${enriched.shopName}`.toLowerCase();
       if (!haystack.includes(q)) return false;
     }
 
@@ -183,11 +184,11 @@ function filterActivities(filters) {
       if (filters.age === 'senioren' && !age.includes('senior')) return false;
     }
 
-    if (filters.maxPrice && activity.prix > Number(filters.maxPrice)) return false;
+    if (filters.maxPrice && activity.price > Number(filters.maxPrice)) return false;
 
     if (filters.category && filters.category !== 'all') {
-      const offering = (enriched.shop?.type_activites || []).join(' ').toLowerCase();
-      const text = `${activity.titre} ${activity.description}`.toLowerCase();
+      const offering = (enriched.shop?.activity_type || []).join(' ').toLowerCase();
+      const text = `${activity.title} ${activity.description}`.toLowerCase();
       const cat = filters.category;
       if (cat === 'kunst' && !/mal|töpf|illustr|van gogh|impression|druck|kunst|diy/.test(text) && !offering.includes('kunst')) return false;
       if (cat === 'natur' && !/natur|tier|park|steine|dino/.test(text) && !offering.includes('natur')) return false;
@@ -286,26 +287,26 @@ function showActivityDetail() {
   }
 
   const a = enrichActivity(activity);
-  document.title = `${a.titre} — Kummo`;
+  document.title = `${a.title} — Kummo`;
 
   container.innerHTML = `
     <div class="detail-hero">
-      <img class="gallery-main" src="${a.photo}" alt="${a.titre}">
+      <img class="gallery-main" src="${a.picture}" alt="${a.title}">
       <div class="detail-info">
         <div class="activity-meta">
           <span class="tag">${a.shopName}</span>
           <span class="tag tag-age">${a.age_group}</span>
         </div>
-        <h1>${a.titre}</h1>
+        <h1>${a.title}</h1>
         <p class="rating">⭐ ${a.rating || 'Noch nicht bewertet'}</p>
-        <p class="price-large">${a.prix} € <span style="font-size:1rem;font-weight:600">pro Person</span></p>
-        <p>📍 ${a.adresse}</p>
-        <p>👥 Max. ${a.participants_max} Teilnehmer · ⏳ ${a.duree}</p>
+        <p class="price-large">${a.price} € <span style="font-size:1rem;font-weight:600">pro Person</span></p>
+        <p>📍 ${a.address}</p>
+        <p>👥 Max. ${a.participants_max} Teilnehmer · ⏳ ${a.duration}</p>
         <p>${a.description}</p>
         <div style="margin-top:1.5rem">
           <h3>Verfügbare Termine</h3>
           <div class="disponibilites">
-            ${a.disponibilites.map((d) => `<span class="tag">${d}</span>`).join('')}
+            ${(a.disponibilites || []).map((d) => `<span class="tag">${d}</span>`).join('')}
           </div>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:0.75rem;margin-top:1.5rem">
@@ -315,7 +316,7 @@ function showActivityDetail() {
       </div>
     </div>
     <div class="map-panel">
-      <div class="map-placeholder">Karte: ${a.adresse}</div>
+      <div class="map-placeholder">Karte: ${a.address}</div>
     </div>
     <section class="section">
       <h2>Das könnte euch auch gefallen</h2>
@@ -349,19 +350,19 @@ function openBookingModal(activity) {
     });
   }
 
-  const slots = activity.disponibilites
+  const slots = (activity.disponibilites || [])
     .map((s) => `<option value="${s}">${s}</option>`)
     .join('');
 
   overlay.innerHTML = `
     <div class="modal" role="dialog" aria-labelledby="booking-title">
-      <h2 id="booking-title">Buchung: ${activity.titre}</h2>
+      <h2 id="booking-title">Buchung: ${activity.title}</h2>
       <form id="booking-form">
         <div class="form-row"><label for="b-name">Name</label><input id="b-name" name="name" required autocomplete="name"></div>
         <div class="form-row"><label for="b-email">E-Mail</label><input id="b-email" name="email" type="email" required autocomplete="email"></div>
         <div class="form-row"><label for="b-slot">Termin</label><select id="b-slot" name="slot" required>${slots}</select></div>
         <div class="form-row"><label for="b-qty">Personen</label><input id="b-qty" name="qty" type="number" min="1" max="${activity.participants_max}" value="2" required></div>
-        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:0.5rem">Buchen (${activity.prix} € / Person)</button>
+        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:0.5rem">Buchen (${activity.price} € / Person)</button>
         <button type="button" class="btn btn-outline" style="width:100%;margin-top:0.5rem" data-close>Abbrechen</button>
       </form>
     </div>`;
@@ -374,12 +375,12 @@ function openBookingModal(activity) {
     const qty = Number(fd.get('qty'));
     addBooking({
       activityId: activity.id,
-      activityName: activity.titre,
+      activityName: activity.title,
       name: fd.get('name'),
       email: fd.get('email'),
       slot: fd.get('slot'),
       qty,
-      total: activity.prix * qty,
+      total: activity.price * qty,
       status: 'bestätigt',
       date: new Date().toISOString(),
     });
@@ -471,7 +472,7 @@ function initProfilePage() {
 
 function getRecommendations(prefs) {
   let list = [...activities];
-  if (prefs.maxBudget) list = list.filter((a) => a.prix <= Number(prefs.maxBudget));
+  if (prefs.maxBudget) list = list.filter((a) => a.price <= Number(prefs.maxBudget));
   if (prefs.age) list = filterActivities({ age: prefs.age });
   return list.slice(0, 6);
 }
@@ -498,7 +499,7 @@ function initAdminDashboard() {
     bizTable.innerHTML = shops
       .map((b) => {
         const count = activities.filter((a) => a.shop_id === b.id).length;
-        return `<tr><td>${b.nom}</td><td>${b.email}</td><td>${count}</td><td>—</td></tr>`;
+        return `<tr><td>${b.name}</td><td>${b.email}</td><td>${count}</td><td>—</td></tr>`;
       })
       .join('');
   }
@@ -556,7 +557,9 @@ function initChatbot() {
 // =============================================
 // 14. Logout handling
 // =============================================
-function logout() {
+async function logout() {
+  // End the Supabase session (v2 API), not just the local cosmetic keys
+  await window.supabase?.auth?.signOut();
   localStorage.removeItem('user_type');
   localStorage.removeItem('user_id');
   localStorage.removeItem('shop_session');

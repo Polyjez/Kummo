@@ -204,7 +204,7 @@
       // Show the dashboard
       document.getElementById('login-section').style.display = 'none';
       document.getElementById('dashboard-content').style.display = 'block';
-      document.getElementById('business-name').innerHTML = `Demo: <strong>${shop.nom}</strong> — Aktivitäten & Buchungen verwalten`;
+      document.getElementById('business-name').innerHTML = `Demo: <strong>${shop.name}</strong> — Aktivitäten & Buchungen verwalten`;
 
       // Load activities
       await loadDashboardData(user.id);
@@ -229,8 +229,8 @@
       const tbody = document.getElementById('biz-activities');
       tbody.innerHTML = activities.map(activity => `
         <tr>
-          <td>${activity.titre}</td>
-          <td>${activity.prix}€</td>
+          <td>${activity.title}</td>
+          <td>${activity.price}€</td>
           <td>${activity.participants_max}</td>
           <td>${activity.age_group}</td>
           <td><a href="aktivitaet.html?id=${activity.id}" class="btn btn-sm btn-outline">Ansehen</a></td>
@@ -250,14 +250,15 @@
 
       const newActivity = {
         shop_id: shopId,
-        titre: document.getElementById('activity-title').value,
+        title: document.getElementById('activity-title').value,
         description: document.getElementById('activity-description').value,
-        prix: parseFloat(document.getElementById('activity-price').value),
+        price: parseFloat(document.getElementById('activity-price').value),
         participants_max: parseInt(document.getElementById('activity-max-participants').value),
-        duree: document.getElementById('activity-duration').value,
+        duration: document.getElementById('activity-duration').value,
         age_group: document.getElementById('activity-age-group').value,
-        photo: document.getElementById('activity-photo').value || "https://via.placeholder.com/400x250",
-        disponibilites: document.getElementById('activity-availability').value.split(',').map(d => d.trim())
+        picture: document.getElementById('activity-photo').value || "https://via.placeholder.com/400x250"
+        // Note: the schema has no `disponibilites`/availability column yet, so
+        // the availability form field is not persisted.
       };
 
       const { error } = await window.supabase
@@ -269,7 +270,7 @@
         return;
       }
 
-      alert(`Aktivität "${newActivity.titre}" wurde gespeichert!`);
+      alert(`Aktivität "${newActivity.title}" wurde gespeichert!`);
       await loadDashboardData(shopId);
 
       // Reset the form
@@ -317,7 +318,7 @@
         if (!error && shop) {
           document.getElementById('login-section').style.display = 'none';
           document.getElementById('dashboard-content').style.display = 'block';
-          document.getElementById('business-name').innerHTML = `Demo: <strong>${shop.nom}</strong> — Aktivitäten & Buchungen verwalten`;
+          document.getElementById('business-name').innerHTML = `Demo: <strong>${shop.name}</strong> — Aktivitäten & Buchungen verwalten`;
           await loadDashboardData(user.id);
         }
       }
