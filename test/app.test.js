@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
 //
-// Tests de non-régression pour js/app.js.
-// app.js est un script « classique » (chargé via <script> dans le navigateur).
-// On l'importe ici pour ses effets de bord : il attache son API à globalThis.KummoApp.
+// Regression tests for js/app.js.
+// app.js is a "classic" script (loaded via <script> in the browser).
+// We import it here for its side effect: it attaches its API to globalThis.KummoApp.
 import { describe, it, expect, beforeEach } from 'vitest';
 import '../js/app.js';
 
@@ -34,7 +34,7 @@ const activities = [
     disponibilites: ['15.06.2026 14:00'],
   },
   {
-    // shop_id pointe vers un magasin absent -> teste le repli
+    // shop_id points to a missing shop -> exercises the fallback
     id: 'a2',
     shop_id: 's2',
     titre: 'Fußball Camp',
@@ -52,30 +52,30 @@ beforeEach(() => {
   localStorage.clear();
 });
 
-describe('constantes STORAGE', () => {
-  it('sont définies (régression : ReferenceError sur la page profil)', () => {
+describe('STORAGE constants', () => {
+  it('are defined (regression: ReferenceError on the profile page)', () => {
     expect(app.STORAGE_PREFS).toBeTruthy();
     expect(app.STORAGE_BOOKINGS).toBeTruthy();
     expect(app.STORAGE_FAVORITES).toBeTruthy();
   });
 });
 
-describe('enrichActivite', () => {
-  it('rattache le magasin via shop_id', () => {
-    const e = app.enrichActivite(activities[0]);
-    expect(e.nom_magasin).toBe('Lila Farbe');
+describe('enrichActivity', () => {
+  it('joins the shop via shop_id', () => {
+    const e = app.enrichActivity(activities[0]);
+    expect(e.shopName).toBe('Lila Farbe');
     expect(e.adresse).toBe('Kreuzberg, Berlin');
   });
 
-  it('utilise un repli quand le magasin est absent', () => {
-    const e = app.enrichActivite(activities[1]);
-    expect(e.nom_magasin).toBe('Anbieter unbekannt');
+  it('uses a fallback when the shop is missing', () => {
+    const e = app.enrichActivity(activities[1]);
+    expect(e.shopName).toBe('Anbieter unbekannt');
     expect(e.adresse).toBe('Adresse unbekannt');
   });
 });
 
 describe('activityCardHtml', () => {
-  it('interpole les valeurs et n\'émet jamais un ${ littéral (régression : template literals échappés)', () => {
+  it('interpolates values and never emits a literal ${ (regression: escaped template literals)', () => {
     const html = app.activityCardHtml(activities[0]);
     expect(html).toContain('Van Gogh Malkurs');
     expect(html).toContain('Kreuzberg, Berlin');
@@ -86,7 +86,7 @@ describe('activityCardHtml', () => {
 });
 
 describe('buildSearchUrl', () => {
-  it('encode uniquement les filtres utiles et n\'émet pas de ${ littéral (régression)', () => {
+  it('encodes only meaningful filters and emits no literal ${ (regression)', () => {
     const url = app.buildSearchUrl({ q: 'malen', age: 'all', category: 'kunst', maxPrice: '' });
     expect(url.startsWith('suchen.html?')).toBe(true);
     expect(url).toContain('q=malen');
@@ -95,36 +95,36 @@ describe('buildSearchUrl', () => {
     expect(url).not.toContain('${');
   });
 
-  it('renvoie la page nue sans filtres', () => {
+  it('returns the bare page when there are no filters', () => {
     expect(app.buildSearchUrl({ age: 'all', category: 'all' })).toBe('suchen.html');
   });
 });
 
-describe('filterActivites', () => {
-  it('recherche le texte libre dans titre/description/magasin', () => {
-    expect(app.filterActivites({ q: 'van gogh' }).map((a) => a.id)).toEqual(['a1']);
+describe('filterActivities', () => {
+  it('searches free text across title/description/shop', () => {
+    expect(app.filterActivities({ q: 'van gogh' }).map((a) => a.id)).toEqual(['a1']);
   });
 
-  it('applique un prix maximum', () => {
-    expect(app.filterActivites({ maxPrice: '30' }).map((a) => a.id)).toEqual(['a1']);
+  it('applies a maximum price', () => {
+    expect(app.filterActivities({ maxPrice: '30' }).map((a) => a.id)).toEqual(['a1']);
   });
 
-  it('filtre par catégorie (offre du magasin + texte)', () => {
-    expect(app.filterActivites({ category: 'kunst' }).map((a) => a.id)).toEqual(['a1']);
+  it('filters by category (shop offering + text)', () => {
+    expect(app.filterActivities({ category: 'kunst' }).map((a) => a.id)).toEqual(['a1']);
   });
 
-  it('renvoie tout sans filtre', () => {
-    expect(app.filterActivites({}).length).toBe(2);
+  it('returns everything when no filter is set', () => {
+    expect(app.filterActivities({}).length).toBe(2);
   });
 });
 
-describe('helpers localStorage', () => {
-  it('sauvegarde et relit les préférences', () => {
+describe('localStorage helpers', () => {
+  it('round-trips preferences', () => {
     app.savePrefs({ name: 'Anna', maxBudget: '30' });
     expect(app.getPrefs()).toEqual({ name: 'Anna', maxBudget: '30' });
   });
 
-  it('ajoute les réservations, la plus récente en premier', () => {
+  it('adds bookings most-recent-first', () => {
     app.addBooking({ activityId: 'a1', total: 50 });
     app.addBooking({ activityId: 'a2', total: 100 });
     const list = app.getBookings();
@@ -132,7 +132,7 @@ describe('helpers localStorage', () => {
     expect(list[0].activityId).toBe('a2');
   });
 
-  it('active puis désactive un favori', () => {
+  it('toggles a favorite on then off', () => {
     app.toggleFavorite('a1');
     expect(app.getFavorites()).toContain('a1');
     app.toggleFavorite('a1');

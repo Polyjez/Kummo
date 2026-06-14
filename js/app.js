@@ -1,62 +1,65 @@
-// Kummo — Charge les données depuis Supabase et gère toutes les pages
-console.log('app.js est chargé !');
-let magasins = [];
-let activites = [];
+// Kummo — loads data from Supabase and drives every page.
+// Note: DB-mapped field names (titre, prix, nom, adresse, age_group,
+// participants_max, duree, disponibilites, shop_id, ...) mirror the Supabase
+// columns and are kept as-is. UI strings stay in German.
+console.log('app.js loaded');
+let shops = [];
+let activities = [];
 
-// Clés localStorage (préférences, réservations, favoris)
+// localStorage keys (preferences, bookings, favorites)
 const STORAGE_PREFS = 'kummo_prefs';
 const STORAGE_BOOKINGS = 'kummo_bookings';
 const STORAGE_FAVORITES = 'kummo_favorites';
 
 function initApp() {
-  console.log('initApp() est appelée');
+  console.log('initApp() called');
   if (!window.supabase) {
-    console.error("Supabase non initialisé ! Vérifiez que le SDK est chargé dans le HTML.");
+    console.error('Supabase not initialized! Check that the SDK is loaded in the HTML.');
     return;
   }
-  // Vérifier que window.supabase.from est disponible
+  // Make sure window.supabase.from is available
   if (typeof window.supabase.from === 'function') {
-    console.log('window.supabase.from est disponible, appel de loadData()');
+    console.log('window.supabase.from is available, calling loadData()');
     loadData();
   } else {
-    console.error("window.supabase.from n'est pas une fonction !");
+    console.error('window.supabase.from is not a function!');
   }
 }
 
 // =============================================
-// 1. Charge les données depuis Supabase
+// 1. Load data from Supabase
 // =============================================
 async function loadData() {
   console.log('loadData() START');
   try {
-    console.log('Début du chargement des données depuis Supabase...');
+    console.log('Loading data from Supabase...');
 
-    // ✅ Utiliser window.supabase DIRECTEMENT (sans variable locale)
-    console.log('Envoi de la requête pour les shops...');
+    // Use window.supabase directly (no local variable)
+    console.log('Requesting shops...');
     const { data: shopsData, error: shopsError } = await window.supabase
       .from('shops')
       .select('*');
 
-    console.log('Résultat de la requête shops:', { shopsData, shopsError });
+    console.log('Shops query result:', { shopsData, shopsError });
 
     if (shopsError) throw shopsError;
 
-    // Charge les activités
-    console.log('Envoi de la requête pour les activités...');
+    // Load activities
+    console.log('Requesting activities...');
     const { data: activitiesData, error: activitiesError } = await window.supabase
       .from('activities')
       .select('*');
 
-    console.log('Résultat de la requête activities:', { activitiesData, activitiesError });
+    console.log('Activities query result:', { activitiesData, activitiesError });
 
     if (activitiesError) throw activitiesError;
 
-    magasins = shopsData;
-    activites = activitiesData;
-    console.log('Données chargées avec succès:', { magasins, activites });
+    shops = shopsData;
+    activities = activitiesData;
+    console.log('Data loaded successfully:', { shops, activities });
     initPage();
   } catch (error) {
-    console.error('Erreur lors du chargement des données:', error);
+    console.error('Error while loading data:', error);
     showLoadError();
   }
 }
@@ -75,13 +78,13 @@ function showLoadError() {
 }
 
 // =============================================
-// 2. Initialise la page en fonction de l'URL
+// 2. Initialize the page based on the URL
 // =============================================
 function initPage() {
   const path = window.location.pathname;
 
   if (path.includes('aktivitaet.html')) {
-    afficherDetailActivite();
+    showActivityDetail();
     return;
   }
   if (path.includes('profil.html')) {
@@ -89,7 +92,7 @@ function initPage() {
     return;
   }
   if (path.includes('business.html')) {
-    // Ne rien faire ici : business.html gère son propre code
+    // Do nothing here: business.html runs its own code
     return;
   }
   if (path.includes('admin.html')) {
@@ -101,36 +104,36 @@ function initPage() {
     return;
   }
   if (path.includes('index.html') || path.endsWith('/')) {
-    afficherListeActivites('featured-activities', activites.slice(0, 6));
+    showActivityList('featured-activities', activities.slice(0, 6));
     initHomeSearch();
   }
 }
 
 // =============================================
-// 3. Enrichit une activité avec les données du magasin
+// 3. Enrich an activity with its shop data
 // =============================================
-function enrichActivite(activite) {
-  const magasin = magasins.find((m) => m.id === activite.shop_id);
+function enrichActivity(activity) {
+  const shop = shops.find((s) => s.id === activity.shop_id);
   return {
-    ...activite,
-    adresse: magasin ? magasin.adresse : 'Adresse unbekannt',
-    nom_magasin: magasin ? magasin.nom : 'Anbieter unbekannt',
-    photo: activite.photo || (magasin ? magasin.photo : 'https://via.placeholder.com/400x250'),
-    magasin,
+    ...activity,
+    adresse: shop ? shop.adresse : 'Adresse unbekannt',
+    shopName: shop ? shop.nom : 'Anbieter unbekannt',
+    photo: activity.photo || (shop ? shop.photo : 'https://via.placeholder.com/400x250'),
+    shop,
   };
 }
 
 // =============================================
-// 4. Génère le HTML pour une carte d'activité
+// 4. Build the HTML for an activity card
 // =============================================
-function activityCardHtml(activite) {
-  const a = enrichActivite(activite);
+function activityCardHtml(activity) {
+  const a = enrichActivity(activity);
   return `
     <article class="activity-card">
       <img src="${a.photo}" alt="${a.titre}" loading="lazy">
       <div class="activity-card-body">
         <div class="activity-meta">
-          <span class="tag">${a.nom_magasin}</span>
+          <span class="tag">${a.shopName}</span>
           <span class="tag tag-age">${a.age_group}</span>
         </div>
         <h3>${a.titre}</h3>
@@ -142,7 +145,7 @@ function activityCardHtml(activite) {
 }
 
 // =============================================
-// 5. Affiche une grille d'activités
+// 5. Render a grid of activities
 // =============================================
 function renderActivityGrid(containerId, list) {
   const container = document.getElementById(containerId);
@@ -155,42 +158,42 @@ function renderActivityGrid(containerId, list) {
   container.innerHTML = list.map(activityCardHtml).join('');
 }
 
-function afficherListeActivites(containerId, list) {
+function showActivityList(containerId, list) {
   renderActivityGrid(containerId, list);
 }
 
 // =============================================
-// 6. Filtre les activités
+// 6. Filter activities
 // =============================================
-function filterActivites(filters) {
-  return activites.filter((activite) => {
-    const enriched = enrichActivite(activite);
+function filterActivities(filters) {
+  return activities.filter((activity) => {
+    const enriched = enrichActivity(activity);
     const q = (filters.q || '').toLowerCase().trim();
 
     if (q) {
-      const haystack = `${activite.titre} ${activite.description} ${enriched.nom_magasin}`.toLowerCase();
+      const haystack = `${activity.titre} ${activity.description} ${enriched.shopName}`.toLowerCase();
       if (!haystack.includes(q)) return false;
     }
 
     if (filters.age && filters.age !== 'all') {
-      const age = activite.age_group.toLowerCase();
+      const age = activity.age_group.toLowerCase();
       if (filters.age === '0-5' && !age.includes('3') && !age.includes('5') && !age.includes('0')) return false;
       if (filters.age === '6-12' && !age.includes('6') && !age.includes('12')) return false;
       if (filters.age === '13-18' && !age.includes('18') && !age.includes('13')) return false;
       if (filters.age === 'senioren' && !age.includes('senior')) return false;
     }
 
-    if (filters.maxPrice && activite.prix > Number(filters.maxPrice)) return false;
+    if (filters.maxPrice && activity.prix > Number(filters.maxPrice)) return false;
 
     if (filters.category && filters.category !== 'all') {
-      const offre = (enriched.magasin?.type_activites || []).join(' ').toLowerCase();
-      const text = `${activite.titre} ${activite.description}`.toLowerCase();
+      const offering = (enriched.shop?.type_activites || []).join(' ').toLowerCase();
+      const text = `${activity.titre} ${activity.description}`.toLowerCase();
       const cat = filters.category;
-      if (cat === 'kunst' && !/mal|töpf|illustr|van gogh|impression|druck|kunst|diy/.test(text) && !offre.includes('kunst')) return false;
-      if (cat === 'natur' && !/natur|tier|park|steine|dino/.test(text) && !offre.includes('natur')) return false;
-      if (cat === 'wissenschaft' && !/wissenschaft|experiment|museum|forscher|steine|dino/.test(text) && !offre.includes('wissenschaft')) return false;
-      if (cat === 'geburtstagsfeier' && !offre.includes('geburtstag')) return false;
-      if (cat === 'feriencamp' && !offre.includes('camp') && !offre.includes('ferien')) return false;
+      if (cat === 'kunst' && !/mal|töpf|illustr|van gogh|impression|druck|kunst|diy/.test(text) && !offering.includes('kunst')) return false;
+      if (cat === 'natur' && !/natur|tier|park|steine|dino/.test(text) && !offering.includes('natur')) return false;
+      if (cat === 'wissenschaft' && !/wissenschaft|experiment|museum|forscher|steine|dino/.test(text) && !offering.includes('wissenschaft')) return false;
+      if (cat === 'geburtstagsfeier' && !offering.includes('geburtstag')) return false;
+      if (cat === 'feriencamp' && !offering.includes('camp') && !offering.includes('ferien')) return false;
       if (cat === 'sport' && !/sport|fußball|yoga|bewegung/.test(text)) return false;
     }
 
@@ -199,7 +202,7 @@ function filterActivites(filters) {
 }
 
 // =============================================
-// 7. Gestion des filtres et de la recherche
+// 7. Search and filter handling
 // =============================================
 function readFiltersFromForm(form) {
   const fd = new FormData(form);
@@ -248,12 +251,12 @@ function initSearchPage() {
     form.addEventListener('submit', (e) => {
       e.preventDefault();
       const f = readFiltersFromForm(form);
-      renderActivityGrid('search-results', filterActivites(f));
-      updateMapHint(filterActivites(f).length);
+      renderActivityGrid('search-results', filterActivities(f));
+      updateMapHint(filterActivities(f).length);
     });
   }
 
-  const results = filterActivites(filters);
+  const results = filterActivities(filters);
   renderActivityGrid('search-results', results);
   updateMapHint(results.length);
 }
@@ -264,25 +267,25 @@ function updateMapHint(count) {
 }
 
 // =============================================
-// 8. Affichage des détails d'une activité
+// 8. Activity detail view
 // =============================================
-function afficherDetailActivite() {
+function showActivityDetail() {
   const params = new URLSearchParams(window.location.search);
-  const activiteId = params.get('id');
+  const activityId = params.get('id');
   const container = document.getElementById('activity-detail');
 
-  if (!activiteId || !container) {
+  if (!activityId || !container) {
     if (container) container.innerHTML = '<p class="empty-state">Aktivität nicht gefunden.</p>';
     return;
   }
 
-  const activite = activites.find((a) => a.id === activiteId);
-  if (!activite) {
+  const activity = activities.find((a) => a.id === activityId);
+  if (!activity) {
     container.innerHTML = '<p class="empty-state">Aktivität nicht gefunden. <a href="suchen.html">Zurück zur Suche</a></p>';
     return;
   }
 
-  const a = enrichActivite(activite);
+  const a = enrichActivity(activity);
   document.title = `${a.titre} — Kummo`;
 
   container.innerHTML = `
@@ -290,7 +293,7 @@ function afficherDetailActivite() {
       <img class="gallery-main" src="${a.photo}" alt="${a.titre}">
       <div class="detail-info">
         <div class="activity-meta">
-          <span class="tag">${a.nom_magasin}</span>
+          <span class="tag">${a.shopName}</span>
           <span class="tag tag-age">${a.age_group}</span>
         </div>
         <h1>${a.titre}</h1>
@@ -319,10 +322,10 @@ function afficherDetailActivite() {
       <div class="activity-grid" id="similar-activities"></div>
     </section>`;
 
-  const similar = activites
-    .filter((x) => x.id !== activite.id && x.shop_id === activite.shop_id) // shop_id au lieu de magasin_id
+  const similar = activities
+    .filter((x) => x.id !== activity.id && x.shop_id === activity.shop_id)
     .slice(0, 3);
-  renderActivityGrid('similar-activities', similar.length ? similar : activites.filter((x) => x.id !== activite.id).slice(0, 3));
+  renderActivityGrid('similar-activities', similar.length ? similar : activities.filter((x) => x.id !== activity.id).slice(0, 3));
 
   document.getElementById('open-booking')?.addEventListener('click', () => openBookingModal(a));
   document.getElementById('toggle-fav')?.addEventListener('click', (e) => {
@@ -332,9 +335,9 @@ function afficherDetailActivite() {
 }
 
 // =============================================
-// 9. Modale de réservation
+// 9. Booking modal
 // =============================================
-function openBookingModal(activite) {
+function openBookingModal(activity) {
   let overlay = document.getElementById('booking-modal');
   if (!overlay) {
     overlay = document.createElement('div');
@@ -346,19 +349,19 @@ function openBookingModal(activite) {
     });
   }
 
-  const slots = activite.disponibilites
+  const slots = activity.disponibilites
     .map((s) => `<option value="${s}">${s}</option>`)
     .join('');
 
   overlay.innerHTML = `
     <div class="modal" role="dialog" aria-labelledby="booking-title">
-      <h2 id="booking-title">Buchung: ${activite.titre}</h2>
+      <h2 id="booking-title">Buchung: ${activity.titre}</h2>
       <form id="booking-form">
         <div class="form-row"><label for="b-name">Name</label><input id="b-name" name="name" required autocomplete="name"></div>
         <div class="form-row"><label for="b-email">E-Mail</label><input id="b-email" name="email" type="email" required autocomplete="email"></div>
         <div class="form-row"><label for="b-slot">Termin</label><select id="b-slot" name="slot" required>${slots}</select></div>
-        <div class="form-row"><label for="b-qty">Personen</label><input id="b-qty" name="qty" type="number" min="1" max="${activite.participants_max}" value="2" required></div>
-        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:0.5rem">Buchen (${activite.prix} € / Person)</button>
+        <div class="form-row"><label for="b-qty">Personen</label><input id="b-qty" name="qty" type="number" min="1" max="${activity.participants_max}" value="2" required></div>
+        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:0.5rem">Buchen (${activity.prix} € / Person)</button>
         <button type="button" class="btn btn-outline" style="width:100%;margin-top:0.5rem" data-close>Abbrechen</button>
       </form>
     </div>`;
@@ -370,13 +373,13 @@ function openBookingModal(activite) {
     const fd = new FormData(e.target);
     const qty = Number(fd.get('qty'));
     addBooking({
-      activityId: activite.id,
-      activityName: activite.titre,
+      activityId: activity.id,
+      activityName: activity.titre,
       name: fd.get('name'),
       email: fd.get('email'),
       slot: fd.get('slot'),
       qty,
-      total: activite.prix * qty,
+      total: activity.prix * qty,
       status: 'bestätigt',
       date: new Date().toISOString(),
     });
@@ -386,7 +389,7 @@ function openBookingModal(activite) {
 }
 
 // =============================================
-// 10. Gestion des préférences, réservations et favoris
+// 10. Preferences, bookings and favorites
 // =============================================
 function getPrefs() {
   try {
@@ -430,7 +433,7 @@ function toggleFavorite(id) {
 }
 
 // =============================================
-// 11. Initialisation des pages spécifiques
+// 11. Page-specific initializers
 // =============================================
 function initProfilePage() {
   const form = document.getElementById('prefs-form');
@@ -463,25 +466,25 @@ function initProfilePage() {
   }
 
   const favIds = getFavorites();
-  renderActivityGrid('favorites-list', activites.filter((a) => favIds.includes(a.id)));
+  renderActivityGrid('favorites-list', activities.filter((a) => favIds.includes(a.id)));
 }
 
 function getRecommendations(prefs) {
-  let list = [...activites];
+  let list = [...activities];
   if (prefs.maxBudget) list = list.filter((a) => a.prix <= Number(prefs.maxBudget));
-  if (prefs.age) list = filterActivites({ age: prefs.age });
+  if (prefs.age) list = filterActivities({ age: prefs.age });
   return list.slice(0, 6);
 }
 
 // =============================================
-// 12. Dashboard Admin
+// 12. Admin dashboard
 // =============================================
 function initAdminDashboard() {
   document.getElementById('admin-business-count')?.replaceChildren(
-    document.createTextNode(String(magasins.length))
+    document.createTextNode(String(shops.length))
   );
   document.getElementById('admin-activity-count')?.replaceChildren(
-    document.createTextNode(String(activites.length))
+    document.createTextNode(String(activities.length))
   );
   document.getElementById('admin-booking-count')?.replaceChildren(
     document.createTextNode(String(getBookings().length))
@@ -492,9 +495,9 @@ function initAdminDashboard() {
 
   const bizTable = document.getElementById('admin-businesses');
   if (bizTable) {
-    bizTable.innerHTML = magasins
+    bizTable.innerHTML = shops
       .map((b) => {
-        const count = activites.filter((a) => a.shop_id === b.id).length;
+        const count = activities.filter((a) => a.shop_id === b.id).length;
         return `<tr><td>${b.nom}</td><td>${b.email}</td><td>${count}</td><td>—</td></tr>`;
       })
       .join('');
@@ -506,8 +509,8 @@ function initAdminDashboard() {
     resTable.innerHTML = bookings.length
       ? bookings
           .map((b) => {
-            const act = activites.find((a) => a.id === b.activityId);
-            return `<tr><td>—</td><td>${act ? enrichActivite(act).nom_magasin : '—'}</td><td>${b.activityName}</td><td>${b.name}</td><td>${b.slot}</td><td>${b.status}</td><td>${b.total} €</td></tr>`;
+            const act = activities.find((a) => a.id === b.activityId);
+            return `<tr><td>—</td><td>${act ? enrichActivity(act).shopName : '—'}</td><td>${b.activityName}</td><td>${b.name}</td><td>${b.slot}</td><td>${b.status}</td><td>${b.total} €</td></tr>`;
           })
           .join('')
       : '<tr><td colspan="7">Noch keine Buchungen</td></tr>';
@@ -515,7 +518,7 @@ function initAdminDashboard() {
 }
 
 // =============================================
-// 13. Navigation et chatbot
+// 13. Navigation and chatbot
 // =============================================
 function initNav() {
   const toggle = document.querySelector('.nav-toggle');
@@ -551,12 +554,12 @@ function initChatbot() {
 }
 
 // =============================================
-// 14. Gestion de la déconnexion
+// 14. Logout handling
 // =============================================
 function logout() {
   localStorage.removeItem('user_type');
   localStorage.removeItem('user_id');
-  localStorage.removeItem('magasin_connecte');
+  localStorage.removeItem('shop_session');
   window.location.href = 'index.html';
 }
 
@@ -564,7 +567,7 @@ async function updateLogoutButton() {
   const logoutBtn = document.getElementById('logout-btn');
   if (!logoutBtn) return;
 
-  // Utilise window.supabase (déjà initialisé dans le HTML) — API v2
+  // Uses window.supabase (already initialized in the HTML) — v2 API
   const { data } = (await window.supabase?.auth?.getUser()) || { data: {} };
   const user = data?.user;
   logoutBtn.style.display = user ? 'inline' : 'none';
@@ -572,25 +575,25 @@ async function updateLogoutButton() {
 }
 
 // =============================================
-// Initialisation finale
+// Final initialization
 // =============================================
-document.addEventListener('DOMContentLoaded', () => {  // ✅ Pas de paramètre
-  console.log('DOMContentLoaded - initApp() est appelée');
+document.addEventListener('DOMContentLoaded', () => {
+  console.log('DOMContentLoaded - calling initApp()');
   initNav();
   initChatbot();
-  initApp();  // ✅ Appelle initApp() pour vérifier window.supabase avant de charger les données
+  initApp(); // Calls initApp() to verify window.supabase before loading data
   updateLogoutButton();
 });
 
 // =============================================
-// Exposition de l'API pour les tests (et le débogage).
-// Sans effet sur l'usage navigateur : attache simplement un objet à window.
+// Test/debug API exposure.
+// No effect on browser usage: just attaches an object to globalThis.
 // =============================================
 if (typeof globalThis !== 'undefined') {
   globalThis.KummoApp = {
-    enrichActivite,
+    enrichActivity,
     activityCardHtml,
-    filterActivites,
+    filterActivities,
     buildSearchUrl,
     getRecommendations,
     getPrefs,
@@ -602,10 +605,10 @@ if (typeof globalThis !== 'undefined') {
     STORAGE_PREFS,
     STORAGE_BOOKINGS,
     STORAGE_FAVORITES,
-    // Test-only : remplace les données chargées depuis Supabase.
-    __setData: (shops, acts) => {
-      magasins = shops;
-      activites = acts;
+    // Test-only: replaces the data loaded from Supabase.
+    __setData: (shopList, activityList) => {
+      shops = shopList;
+      activities = activityList;
     },
   };
 }

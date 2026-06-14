@@ -6,7 +6,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Kummo is a B2B2C web app for discovering and booking family/senior-friendly activities in Berlin. The full product vision lives in `README.md` (the PRD), which describes a *Glide* (no-code) MVP. **The actual codebase does not use Glide** — it is a hand-coded static multi-page site (plain HTML + one shared `js/app.js`) backed by **Supabase**. Treat the PRD as product intent, not as a description of the current implementation.
 
-The UI is in **German**; code comments and variable names are in **French** (e.g. `magasins` = shops, `activites` = activities). Match the surrounding language when editing.
+## Language rules
+
+- **English** for everything developer-facing: code (identifiers, function/variable names), comments, documentation, commit messages, `console.log` debug output, and test descriptions.
+- **German only for UI** — anything an end user sees: rendered page text, `alert()` messages, button labels, and the German `echo` lines in the launcher scripts.
+- **Exception — DB-mapped field names stay as-is.** Fields that mirror Supabase columns keep their original spelling (`titre`, `prix`, `nom`, `adresse`, `duree`, `age_group`, `participants_max`, `disponibilites`, `type_activites`, `shop_id`). Renaming them would require a database migration. Don't "translate" these in code.
+- Historical note: the code was originally French (e.g. `magasins`→`shops`, `activites`→`activities`, `enrichActivite`→`enrichActivity`); local identifiers have been migrated to English. If you find leftover French in non-DB identifiers or comments, translate it.
 
 ## Running
 
@@ -35,9 +40,9 @@ Regression tests use **Vitest + jsdom** (Node dev tooling only — not needed to
 - `admin.html` — admin stats (business/activity/booking counts, revenue)
 
 **`js/app.js`** is the single shared script for all the B2C pages. Flow:
-1. `DOMContentLoaded` → `initApp()` checks `window.supabase` is ready → `loadData()` fetches the `shops` and `activities` tables into module-level `magasins` / `activites` arrays.
+1. `DOMContentLoaded` → `initApp()` checks `window.supabase` is ready → `loadData()` fetches the `shops` and `activities` tables into module-level `shops` / `activities` arrays.
 2. `initPage()` is a path-based router (`window.location.pathname.includes(...)`) that dispatches to the right page initializer.
-3. Activities are joined to their shop client-side via `enrichActivite()` (`activite.shop_id === magasin.id`).
+3. Activities are joined to their shop client-side via `enrichActivity()` (`activity.shop_id === shop.id`); the joined object exposes `shopName` and `shop`.
 
 **Data sources — two separate stores:**
 - **Supabase** (remote, read mostly): tables `shops` and `activities`. The Supabase client and credentials are initialized **inline in each HTML `<head>`** (see `index.html`), not in `app.js`. In `index.html`, `app.js` is injected dynamically *after* the Supabase client is confirmed ready.

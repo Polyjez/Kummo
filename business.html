@@ -25,7 +25,7 @@
   </header>
 
   <main class="container" style="padding:2rem 0 4rem">
-    <!-- Formulaire de connexion -->
+    <!-- Login form -->
     <div id="login-section" style="max-width: 500px; margin: 0 auto 2rem;">
       <h2>Anbieter-Anmeldung</h2>
       <form id="business-login-form" onsubmit="event.preventDefault(); loginBusiness();">
@@ -44,7 +44,7 @@
       </form>
     </div>
 
-    <!-- Contenu du dashboard -->
+    <!-- Dashboard content -->
     <div id="dashboard-content" style="display: none;">
       <h1>Anbieter-Dashboard</h1>
       <p id="business-name">Demo: <strong>Geschäftsname</strong> — Aktivitäten & Buchungen verwalten</p>
@@ -152,20 +152,20 @@
     <p class="footer-bottom container">© 2026 Kummo</p>
   </footer>
 
-  <!-- Charge le SDK Supabase puis initialise le client (UNIQUEMENT ici) -->
+  <!-- Load the Supabase SDK then initialize the client (ONLY here) -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
   <script>
-    // Initialise Supabase une seule fois (supabase = lib UMD globale)
+    // Initialize Supabase once (supabase = global UMD lib)
     window.supabase = supabase.createClient(
       'https://xusuvidhmuyzpfrtxutd.supabase.co',
       'sb_publishable_b1E4qrzlctLblwro4yoCOw_tGVc3EtT'
     );
   </script>
 
-  <!-- Code spécifique à business.html -->
+  <!-- Code specific to business.html -->
   <script>
     // =============================================
-    // 1. Fonction de connexion
+    // 1. Login
     // =============================================
     async function loginBusiness() {
       const email = document.getElementById('login-email').value;
@@ -183,7 +183,7 @@
 
       const user = data.user;
 
-      // Vérifie si l'utilisateur est un magasin
+      // Check whether the user is a shop
       const { data: shop, error: shopError } = await window.supabase
         .from('shops')
         .select('*')
@@ -196,22 +196,22 @@
         return;
       }
 
-      // Stocke les infos de session
+      // Store session info
       localStorage.setItem('user_type', 'business');
       localStorage.setItem('user_id', user.id);
-      localStorage.setItem('magasin_connecte', user.id);
+      localStorage.setItem('shop_session', user.id);
 
-      // Affiche le dashboard
+      // Show the dashboard
       document.getElementById('login-section').style.display = 'none';
       document.getElementById('dashboard-content').style.display = 'block';
       document.getElementById('business-name').innerHTML = `Demo: <strong>${shop.nom}</strong> — Aktivitäten & Buchungen verwalten`;
 
-      // Charge les activités
+      // Load activities
       await loadDashboardData(user.id);
     }
 
     // =============================================
-    // 2. Charge les données du dashboard
+    // 2. Load dashboard data
     // =============================================
     async function loadDashboardData(shopId) {
       const { data: activities, error } = await window.supabase
@@ -220,7 +220,7 @@
         .eq('shop_id', shopId);
 
       if (error) {
-        console.error('Erreur:', error);
+        console.error('Error:', error);
         return;
       }
 
@@ -239,10 +239,10 @@
     }
 
     // =============================================
-    // 3. Ajouter une activité
+    // 3. Add an activity
     // =============================================
     async function addActivity() {
-      const shopId = localStorage.getItem('magasin_connecte');
+      const shopId = localStorage.getItem('shop_session');
       if (!shopId) {
         alert('Bitte melden Sie sich zuerst an.');
         return;
@@ -272,24 +272,24 @@
       alert(`Aktivität "${newActivity.titre}" wurde gespeichert!`);
       await loadDashboardData(shopId);
 
-      // Réinitialise le formulaire
+      // Reset the form
       document.getElementById('business-login-form').reset();
       document.querySelector('form[onsubmit*="addActivity"]').reset();
     }
 
     // =============================================
-    // 4. Déconnexion
+    // 4. Logout
     // =============================================
     async function logout() {
       await window.supabase.auth.signOut();
       localStorage.removeItem('user_type');
       localStorage.removeItem('user_id');
-      localStorage.removeItem('magasin_connecte');
+      localStorage.removeItem('shop_session');
       window.location.href = 'index.html';
     }
 
     // =============================================
-    // 5. Met à jour le bouton de déconnexion
+    // 5. Update the logout button
     // =============================================
     async function updateLogoutButton() {
       const logoutBtn = document.getElementById('logout-btn');
@@ -301,7 +301,7 @@
     }
 
     // =============================================
-    // 6. Initialisation au chargement de la page
+    // 6. Initialization on page load
     // =============================================
     document.addEventListener('DOMContentLoaded', async () => {
       await updateLogoutButton();
@@ -324,6 +324,6 @@
     });
   </script>
 
-  <!-- Ne charge PAS app.js ici (pour éviter les conflits) -->
+  <!-- Do NOT load app.js here (to avoid conflicts) -->
 </body>
 </html>

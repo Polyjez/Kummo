@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # ============================================================
-#  Kummo lokal starten (Linux) - im Dateimanager doppelklicken
-#  oder im Terminal ausfuehren: ./Kummo-starten.sh
-#  Startet einen kleinen Webserver und oeffnet den Browser.
-#  Zum Beenden: Strg+C druecken.
+#  Start Kummo locally (Linux) - double-click in the file manager
+#  or run in a terminal: ./Kummo-starten.sh
+#  Starts a small web server and opens the browser.
+#  Stop it with Ctrl+C.
+#  (User-facing messages below are in German on purpose.)
 # ============================================================
 set -euo pipefail
 cd "$(dirname "$0")"
@@ -11,7 +12,7 @@ cd "$(dirname "$0")"
 PORT=5500
 URL="http://localhost:${PORT}/index.html"
 
-# Verfuegbares Programm zum Starten des Servers suchen.
+# Look for an available program to start the server.
 if command -v python3 >/dev/null 2>&1; then
   SERVER=(python3 -m http.server "$PORT")
 elif command -v python >/dev/null 2>&1; then
@@ -30,10 +31,10 @@ echo "Kummo wird gestartet ..."
 "${SERVER[@]}" &
 SERVER_PID=$!
 
-# Server beim Beenden (Strg+C) sauber stoppen.
+# Stop the server cleanly on exit (Ctrl+C).
 trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
 
-# Kurz warten, dann Browser oeffnen.
+# Wait briefly, then open the browser.
 sleep 2
 if command -v xdg-open >/dev/null 2>&1; then
   xdg-open "$URL" >/dev/null 2>&1 || true
