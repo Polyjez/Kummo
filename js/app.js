@@ -581,3 +581,31 @@ document.addEventListener('DOMContentLoaded', () => {  // ✅ Pas de paramètre
   initApp();  // ✅ Appelle initApp() pour vérifier window.supabase avant de charger les données
   updateLogoutButton();
 });
+
+// =============================================
+// Exposition de l'API pour les tests (et le débogage).
+// Sans effet sur l'usage navigateur : attache simplement un objet à window.
+// =============================================
+if (typeof globalThis !== 'undefined') {
+  globalThis.KummoApp = {
+    enrichActivite,
+    activityCardHtml,
+    filterActivites,
+    buildSearchUrl,
+    getRecommendations,
+    getPrefs,
+    savePrefs,
+    getBookings,
+    addBooking,
+    getFavorites,
+    toggleFavorite,
+    STORAGE_PREFS,
+    STORAGE_BOOKINGS,
+    STORAGE_FAVORITES,
+    // Test-only : remplace les données chargées depuis Supabase.
+    __setData: (shops, acts) => {
+      magasins = shops;
+      activites = acts;
+    },
+  };
+}

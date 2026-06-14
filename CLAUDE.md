@@ -10,10 +10,19 @@ The UI is in **German**; code comments and variable names are in **French** (e.g
 
 ## Running
 
-The app has no build step — it is static files that must be **served over HTTP**.
+The app itself has no build step — it is static files that must be **served over HTTP**.
 
 - **Do not open the HTML with `file://`** — Supabase requests fail under the `file:` protocol (the code shows a German hint telling the user to start a local server). `app.js` explicitly checks `window.location.protocol === 'file:'`.
-- Serve from the repo root, e.g. `python3 -m http.server 5500` then open `http://localhost:5500`, or use VS Code Live Server.
+- **Non-technical launchers** (preferred for the end user): double-click `Kummo-starten.bat` (Windows) or run `./Kummo-starten.sh` (Linux). They detect Python or Node, start a server on port 5500, and open the browser. Close the window / Ctrl+C to stop.
+- **Manual**: from the repo root, `python3 -m http.server 5500` then open `http://localhost:5500`, or `npm run serve`, or VS Code Live Server.
+
+## Testing
+
+Regression tests use **Vitest + jsdom** (Node dev tooling only — not needed to run the app).
+
+- `npm install` once, then `npm test` (single run) or `npm run test:watch`.
+- Tests live in `test/app.test.js` and cover `app.js`'s pure logic (filtering, search-URL building, card HTML, shop enrichment, localStorage helpers) — including guards for the bugs already fixed (escaped `${}` template literals, undefined `STORAGE_*` constants).
+- `app.js` is a classic browser script, so it can't be `import`ed normally. Its bottom block attaches a `globalThis.KummoApp` API (incl. a test-only `__setData(shops, activities)` to inject fixture data). This is inert in the browser. When adding a function worth testing, add it to that export object.
 
 ## Architecture
 
