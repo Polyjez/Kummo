@@ -1,0 +1,16 @@
+{
+  "name": "kummo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Kummo – Entdeckung & Buchung familienfreundlicher Aktivitäten (statische Website + Supabase)",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "serve": "npx --yes serve -l 5500 ."
+  },
+  "devDependencies": {
+    "jsdom": "^25.0.1",
+    "supabase": "^2.106.0",
+    "vitest": "^2.1.8"
+  }
+}

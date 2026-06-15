@@ -90,37 +90,37 @@
     <button type="button" class="btn btn-sm btn-primary" id="chat-send" style="margin-top:0.5rem;width:100%">Senden</button>
   </div>
 
-    <!-- Charge le SDK Supabase -->
+    <!-- Load the Supabase SDK -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <!-- Initialisation de Supabase et chargement de app.js -->
+  <!-- Initialize Supabase and load app.js -->
   <script>
-    // Attendre que le SDK Supabase soit chargé
+    // Wait until the Supabase SDK is loaded
     function loadApp() {
       if (typeof supabase !== 'undefined') {
-        // Initialiser window.supabase avec createClient
+        // Initialize window.supabase with createClient
         window.supabase = supabase.createClient(
-          'https://xusuvhmuyzpfrtxutd.supabase.co',
+          'https://xusuvidhmuyzpfrtxutd.supabase.co',
           'sb_publishable_b1E4qrzlctLblwro4yoCOw_tGVc3EtT'
         );
 
-        // Vérifier que window.supabase.from est disponible
+        // Make sure window.supabase.from is available
         if (typeof window.supabase.from === 'function') {
-          console.log('Supabase est correctement initialisé !');
-          // Charger app.js une fois que window.supabase est prêt
+          console.log('Supabase initialized successfully!');
+          // Load app.js once window.supabase is ready
           var script = document.createElement('script');
           script.src = 'js/app.js';
           document.body.appendChild(script);
         } else {
-          console.error('window.supabase.from n\'est pas une fonction !');
+          console.error('window.supabase.from is not a function!');
         }
       } else {
-        console.error('Supabase SDK non chargé !');
-        // Réessayer après un court délai
+        console.error('Supabase SDK not loaded!');
+        // Retry after a short delay
         setTimeout(loadApp, 100);
       }
     }
 
-    // Appeler loadApp pour initialiser Supabase et charger app.js
+    // Call loadApp to initialize Supabase and load app.js
     loadApp();
   </script>
 </body>

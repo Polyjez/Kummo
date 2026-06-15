@@ -82,7 +82,15 @@
     <p class="footer-bottom container">© 2026 Kummo</p>
   </footer>
 
-  <!-- Charger app.js -->
+  <!-- Load the Supabase SDK and initialize the client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script>
+    window.supabase = supabase.createClient(
+      'https://xusuvidhmuyzpfrtxutd.supabase.co',
+      'sb_publishable_b1E4qrzlctLblwro4yoCOw_tGVc3EtT'
+    );
+  </script>
+  <!-- Load app.js -->
   <script src="js/app.js" defer></script>
 </body>
 </html>

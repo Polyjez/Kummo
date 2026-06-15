@@ -143,8 +143,8 @@ User (Web/Mobile)
    │
    ▼
 Glide App (Front-End + Back-End) ──┬── Glide Data (Database)
-   │                                │
-   ▼                                ▼
+   │                               │
+   ▼                              ▼
 Webhooks/Pipedream ─────────────── Bookingkit/Regiondo APIs
    │
    ▼
@@ -416,3 +416,14 @@ Business Onboarding
 🟡 In progress
 Contact local businesses in Berlin.
 
+## Technical
+
+### DB Migration
+
+[Docs](https://supabase.com/dashboard/project/xusuvidhmuyzpfrtxutd/database/migrations)
+
+```sh
+npx supabase migration new new_migration
+# update SQL file
+npx supabase db push
+```
