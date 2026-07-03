@@ -19,8 +19,9 @@ erDiagram
     VENDOR ||--o{ SHOP           : "owns"
     VENDOR ||--o{ NOTIFICATION   : "receives"
 
-    SHOP     ||--o{ ACTIVITY     : "organizes"
-    CATEGORY ||--o{ ACTIVITY     : "classifies"
+    SHOP     ||--o{ ACTIVITY          : "organizes"
+    ACTIVITY ||--o{ ACTIVITY_CATEGORY : "tagged"
+    CATEGORY ||--o{ ACTIVITY_CATEGORY : "classifies"
 
     ACTIVITY ||--o{ SESSION      : "scheduled as"
     ACTIVITY ||--o{ REVIEW       : "reviewed in"
@@ -53,6 +54,8 @@ erDiagram
         string   interests
         string   preferred_time_slots
         datetime created_at
+        datetime updated_at
+        boolean  is_active
     }
 
     CHILD {
@@ -62,12 +65,16 @@ erDiagram
         date   date_of_birth
         string gender
         string interests
+        datetime updated_at
     }
 
     VENDOR {
         uuid   id PK
         uuid   user_id FK "-> auth.users.id"
         string contact_name
+        datetime created_at
+        datetime updated_at
+        boolean  is_active
     }
 
     SHOP {
@@ -79,17 +86,20 @@ erDiagram
         string phone
         string email
         string activity_type
+        datetime created_at
+        datetime updated_at
+        boolean  is_active
     }
 
     CATEGORY {
         uuid   id PK
         string name
+        datetime updated_at
     }
 
     ACTIVITY {
         uuid    id PK
         uuid    shop_id FK
-        uuid    category_id FK
         string  title
         string  description
         string  picture
@@ -97,7 +107,15 @@ erDiagram
         int     age_max
         decimal price
         int     duration_min
-        point   location
+        datetime created_at
+        datetime updated_at
+        boolean  is_active
+    }
+
+    ACTIVITY_CATEGORY {
+        uuid activity_id FK
+        uuid category_id FK
+        datetime updated_at
     }
 
     SESSION {
@@ -107,6 +125,7 @@ erDiagram
         datetime ends_at
         int      seats_total
         int      seats_available
+        datetime updated_at
     }
 
     BOOKING {
@@ -116,6 +135,7 @@ erDiagram
         int      seats
         string   status
         datetime created_at
+        datetime updated_at
     }
 
     PAYMENT {
@@ -126,6 +146,7 @@ erDiagram
         string  status
         string  provider_ref
         datetime paid_at
+        datetime updated_at
     }
 
     REVIEW {
@@ -135,11 +156,13 @@ erDiagram
         int    rating
         string comment
         datetime created_at
+        datetime updated_at
     }
 
     FAVORITE {
         uuid client_id FK
         uuid activity_id FK
+        datetime updated_at
     }
 
     NOTIFICATION {
@@ -150,6 +173,7 @@ erDiagram
         string   payload
         boolean  read
         datetime created_at
+        datetime updated_at
     }
 ```
 
@@ -164,7 +188,8 @@ erDiagram
 | **Vendor** | The account that manages one or more shops. | Vendor page, vocabulary |
 | **Shop** | The entity that organizes activities. | Vocabulary ("Shop") |
 | **Category** | Activity classification for filtering/search. | Filters, categorization |
-| **Activity** | A bookable offering by a shop. | Activities page, vocabulary |
+| **Activity–Category** | Join linking an activity to each of its categories (many-to-many). | Filters, categorization |
+| **Activity** | A bookable offering by a shop; inherits the shop's location. | Activities page, vocabulary |
 | **Session** | A dated occurrence of an activity with seat capacity. | Time-slot filter, seat availability (UC 22) |
 | **Booking** | A client reserving one or more seats in a session. | Booking, use cases 1–2, 11–12 |
 | **Payment** | The settlement of a booking, net of commission. | Payment solution, UC 21 |
@@ -172,16 +197,22 @@ erDiagram
 | **Favorite** | A client bookmarking an activity. | Favorites |
 | **Notification** | Email / in-app message to a client or vendor. | Notifications section |
 
-## Assumptions & open decisions
+## Assumptions
 
-These shape the schema and are worth settling early:
+Decisions already settled that this model reflects. They are stable ground unless revisited deliberately.
 
-1. **Activity vs. Session.** I split the schedule into a separate `SESSION` entity so seat availability (UC 22) and time-slot filtering attach to a specific date/time rather than the activity itself. If activities are single, non-recurring events, `SESSION` could collapse into `ACTIVITY`.
-2. **Seats & availability.** `seats_available` is modeled as a counter on `SESSION`. It could instead be derived by summing bookings — a consistency-vs-simplicity trade-off.
-3. **Location / geo.** `location` is shown as a `point` (lat/lng) on client, shop, and activity to support map placement and proximity search. The activity may just inherit the shop's location — to confirm.
-4. **Category cardinality.** Modeled as one category per activity (`CATEGORY ||--o{ ACTIVITY`). If an activity can belong to several categories, this becomes a many-to-many join.
-5. **Vendor ↔ Shop.** Assumed one vendor may own several shops. If it's strictly one shop per vendor, the two can merge.
-6. **Notification polymorphism.** `recipient_id` + `recipient_type` point to either a client or a vendor. An alternative is separate notification tables per audience.
-7. **Auth (delegated, Supabase-native).** Login is delegated to an identity provider via **Supabase Auth**. The canonical account is `auth.users` (`AUTH_USER`); each linked provider — email/password, Google, etc. — is a row in `auth.identities` (`AUTH_IDENTITY`), so the "authentication method" is a **one-to-many** set of linked identities, not a single field. Both tables are **managed by Supabase** (shown greyed conceptually; we don't create or own them, and we never store passwords). Our domain profiles link in via `Client.user_id` / `Vendor.user_id` → `auth.users.id`. Email is owned by the auth layer and only optionally mirrored onto the profile.
-8. **Separate Client and Vendor accounts.** A person is either a Client *or* a Vendor — there is no shared account bridging the two profiles. Each profile references its own `auth.users` row independently. (If a single login ever needs both roles, this becomes a shared `USER` + role model — a schema change to revisit then.)
-9. **Not yet modeled** (out of the MVP data core): reviews of the *site* (vs. of an activity), community, chatbot, admin analytics (visitors, clicks, visit duration), booking sharing (UC 20).
+1. **Auth (delegated, Supabase-native).** Login is delegated to an identity provider via **Supabase Auth**. The canonical account is `auth.users` (`AUTH_USER`); each linked provider — email/password, Google, etc. — is a row in `auth.identities` (`AUTH_IDENTITY`), so the "authentication method" is a **one-to-many** set of linked identities, not a single field. Both tables are **managed by Supabase** (shown greyed conceptually; we don't create or own them, and we never store passwords). Our domain profiles link in via `Client.user_id` / `Vendor.user_id` → `auth.users.id`. Email is owned by the auth layer and only optionally mirrored onto the profile.
+2. **Separate Client and Vendor accounts.** A person is either a Client *or* a Vendor — there is no shared account bridging the two profiles. Each profile references its own `auth.users` row independently. (If a single login ever needs both roles, this becomes a shared `USER` + role model — a schema change to revisit then.)
+3. **Entities vs. value objects (auditing & soft deletion).** `updated_at` is carried by **every** object, to track last modification. `is_active` (soft deletion — deactivate rather than hard-delete) is reserved for the **entities** only: **Client, Vendor, Activity, and Shop**. The other tables (Child, Category, Session, Activity–Category, Booking, Payment, Review, Favorite, Notification) are value objects / records within an aggregate — they get `updated_at` but no independent soft-delete lifecycle, and are removed with their owner or kept as immutable history.
+4. **Activity vs. Session (validated).** The schedule is split into a separate `SESSION` entity so seat availability (UC 22) and time-slot filtering attach to a specific date/time rather than the activity itself.
+5. **Location / geo (validated).** `location` is a `point` (lat/lng) carried by **Shop** and **Client** only. An **Activity inherits its Shop's location** via `shop_id` (a shop is, for our concern, just a location) — activities have no location of their own. Client location supports proximity search.
+6. **Category cardinality (validated).** An activity can have **multiple categories**: the link is a many-to-many join (`ACTIVITY_CATEGORY`), not a single `category_id` on the activity.
+
+## Open decisions
+
+Unresolved choices that will require future work before the schema is finalized. Each changes the shape of one or more tables.
+
+1. **Seats & availability.** `seats_available` is modeled as a counter on `SESSION`. It could instead be derived by summing bookings — a consistency-vs-simplicity trade-off.
+2. **Vendor ↔ Shop.** Assumed one vendor may own several shops. If it's strictly one shop per vendor, the two can merge.
+3. **Notification polymorphism.** `recipient_id` + `recipient_type` point to either a client or a vendor. An alternative is separate notification tables per audience.
+4. **Not yet modeled** (out of the MVP data core, will need their own modeling later): reviews of the *site* (vs. of an activity), community, chatbot, admin analytics (visitors, clicks, visit duration), booking sharing (UC 20).
