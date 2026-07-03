@@ -3,9 +3,10 @@ REM ============================================================
 REM  Start Kummo locally (Windows).
 REM  Usage: start-kummo.bat [env]
 REM    env = local (default) ^| prod ^| any .env.^<name^> file
-REM  Starts a small web server and opens the browser.
+REM  For "local": starts Supabase (Docker) if not already running,
+REM  then starts a web server and opens the browser.
 REM  Close this window to stop it.
-REM  (User-facing messages below are in German on purpose.)
+REM  (User-facing messages below are in English.)
 REM ============================================================
 setlocal
 cd /d "%~dp0"
@@ -16,8 +17,8 @@ set "ENV_FILE=.env.%ENV%"
 
 if not exist "%ENV_FILE%" (
   echo.
-  echo Umgebungsdatei '%ENV_FILE%' nicht gefunden.
-  echo Verfuegbare Umgebungen:
+  echo Environment file '%ENV_FILE%' not found.
+  echo Available environments:
   for %%f in (.env.*) do echo   - %%~nf
   echo.
   pause
@@ -33,12 +34,12 @@ for /f "usebackq tokens=1,* delims==" %%a in ("%ENV_FILE%") do (
 )
 
 if not defined SUPABASE_URL (
-  echo SUPABASE_URL fehlt in '%ENV_FILE%'.
+  echo SUPABASE_URL is missing in '%ENV_FILE%'.
   pause
   exit /b 1
 )
 if not defined SUPABASE_ANON_KEY (
-  echo SUPABASE_ANON_KEY fehlt in '%ENV_FILE%'.
+  echo SUPABASE_ANON_KEY is missing in '%ENV_FILE%'.
   pause
   exit /b 1
 )
@@ -49,8 +50,17 @@ if not defined SUPABASE_ANON_KEY (
 >> js\env.js echo   supabaseAnonKey: '%SUPABASE_ANON_KEY%'
 >> js\env.js echo };
 
-echo Umgebung: %ENV%
+echo Environment: %ENV%
 
+REM --- Supabase (local only) ---
+if "%ENV%"=="local" (
+  REM Stop any existing (possibly unhealthy) Supabase containers first
+  npx supabase stop >nul 2>&1
+  echo Starting local Supabase instance ...
+  npx supabase start
+)
+
+REM --- Web server ---
 set "PORT=5500"
 set "URL=http://localhost:%PORT%/index.html"
 set "SERVER="
@@ -62,15 +72,15 @@ if not defined SERVER where npx >nul 2>&1 && set "SERVER=npx --yes serve -l %POR
 
 if not defined SERVER (
   echo.
-  echo Es wurde weder Python noch Node.js gefunden.
-  echo Bitte installieren Sie Python: https://www.python.org/downloads/
-  echo ^(Beim Installieren "Add Python to PATH" anhaken.^)
+  echo Neither Python nor Node.js was found.
+  echo Please install Python: https://www.python.org/downloads/
+  echo (Check "Add Python to PATH" during installation.)
   echo.
   pause
   exit /b 1
 )
 
-echo Kummo wird gestartet ...
+echo Starting Kummo ...
 start "" /b %SERVER%
 
 REM Wait briefly so the server is ready, then open the browser.
@@ -78,7 +88,8 @@ timeout /t 2 /nobreak >nul
 start "" "%URL%"
 
 echo.
-echo Kummo laeuft auf %URL%
-echo Zum Beenden dieses Fenster schliessen.
+echo Kummo is running at %URL%
+echo Close this window to stop.
+echo To stop Supabase: npx supabase stop
 echo.
 pause >nul
