@@ -50,7 +50,7 @@ Regression tests use **Vitest + jsdom** (Node dev tooling only — not needed to
 
 ## Supabase setup
 
-- Canonical project URL: `https://xusuvidhmuyzpfrtxutd.supabase.co` (20-char ref); the publishable (anon) key is committed in every page by design. Any page that uses data must load the supabase-js **v2** UMD SDK from the CDN **and** call `supabase.createClient(...)` into `window.supabase` *before* `js/app.js` runs. Use `supabase.createClient` (the global UMD lib), never `window.supabase.createClient`.
+- Canonical project URL: `https://xusuvidhmuyzpfrtxutd.supabase.co` (20-char ref). The Supabase URL and publishable (anon) key are **not hardcoded in the repo**. The start script (`start-kummo.sh [env]`) reads `.env.<env>` and writes `js/env.js` (gitignored) which sets `window.KummoEnv`. `js/config.js` reads from `KummoEnv` into `KummoConfig`. Any page that uses data must load the supabase-js **v2** UMD SDK from the CDN **and** call `supabase.createClient(...)` into `window.supabase` *before* `js/app.js` runs. Use `supabase.createClient` (the global UMD lib), never `window.supabase.createClient`.
 - Auth uses supabase-js **v2** APIs: `auth.signInWithPassword(...)` (returns `{ data: { user }, error }`) and `await auth.getUser()` (returns `{ data: { user } }`) — not v1's `auth.signIn` / `auth.user()`.
 - Query tables by bare name: `.from('shops')`, `.from('activities')` — not `.from('public.shops')`.
 - CORS was an open problem per commit history; if requests fail, check the project's allowed origins.
@@ -58,4 +58,4 @@ Regression tests use **Vitest + jsdom** (Node dev tooling only — not needed to
 ## Conventions
 
 - No framework, no bundler — vanilla DOM APIs and template-literal HTML strings.
-- Supabase publishable (anon) keys are committed in the HTML by design (they are public client keys); the secret service key must never appear here.
+- Supabase publishable (anon) keys are committed in `.env.*` files by design (they are public client keys); the secret service key must never appear here.

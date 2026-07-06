@@ -3,3 +3,6 @@ coverage/
 .DS_Store
 
 supabase/.temp
+js/env.js
+
+.env*

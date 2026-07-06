@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+  <rect width="64" height="64" rx="16" fill="#1C4473"/>
+  <text x="32" y="33" text-anchor="middle" dominant-baseline="central"
+        font-family="'Dancing Script', 'Segoe Script', 'Brush Script MT', cursive"
+        font-size="44" font-weight="700" fill="#FDE7D8">K</text>
+  <circle cx="47" cy="44" r="4" fill="#DC562E"/>
+</svg>

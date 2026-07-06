@@ -6,7 +6,12 @@
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
-    "serve": "npx --yes serve -l 5500 ."
+    "start": "bash start-kummo.sh local",
+    "start:prod": "bash start-kummo.sh prod",
+    "serve": "npx --yes serve -l 5500 .",
+    "db:start": "npx supabase start",
+    "db:stop": "npx supabase stop",
+    "db:reset": "npx supabase db reset"
   },
   "devDependencies": {
     "jsdom": "^25.0.1",

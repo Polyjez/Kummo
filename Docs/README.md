@@ -423,7 +423,44 @@ Contact local businesses in Berlin.
 [Docs](https://supabase.com/dashboard/project/xusuvidhmuyzpfrtxutd/database/migrations)
 
 ```sh
-npx supabase migration new new_migration
+pnpm dlx supabase migration new new_migration
 # update SQL file
-npx supabase db push
+pnpm dlx supabase db push
 ```
+
+### Local Development (Supabase)
+
+Run a local Supabase stack with seed data — no impact on production.
+
+**Prerequisites:** Docker / Podman must be running.
+
+with **Podman**, exports the following:
+`export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/podman/podman.sock`
+
+```sh
+pnpm install
+pnpm db:start       # starts local Supabase (first run pulls Docker images)
+pnpm db:reset       # applies all migrations + seeds test data
+pnpm serve          # serves the static site on port 5500
+```
+
+Open `http://localhost:5500?dev=true` — the app reads from the local Supabase instance.
+
+**Dev mode activation (pick one):**
+- URL param: append `?dev=true` to any page URL
+- Persist: run `localStorage.setItem('kummo_dev', 'true')` in the browser console
+
+**Dev mode deactivation:**
+- Remove `?dev=true` from the URL, or
+- Run `localStorage.removeItem('kummo_dev')` in the browser console
+
+Without dev mode, the app hits the production Supabase project as usual.
+
+**Other commands:**
+```sh
+pnpm db:stop        # stops the local Supabase stack
+pnpm db:reset       # re-applies migrations + re-seeds (wipes local data)
+pnpm dlx supabase status    # shows local URLs and anon key
+```
+
+**Seed data includes:** 10 shops, 22 activities, 4 users, 6 children, 8 bookings. See `supabase/seed.sql`.
