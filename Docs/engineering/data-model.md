@@ -1,6 +1,6 @@
 # Data model — first draft
 
-Derived from [brainstorming-en.md](brainstorming-en.md). This is an **initial conceptual model** for discussion, not a final schema. Open questions and assumptions are listed under the diagram.
+Derived from [brainstorming](../product/brainstorming.md). This is an **initial conceptual model** for discussion, not a final schema. The settled assumptions this model reflects are listed under the diagram; unresolved choices live in [open_questions/technical/data-model.md](../open_questions/technical/data-model.md).
 
 ## Entity-relationship diagram
 
@@ -208,11 +208,6 @@ Decisions already settled that this model reflects. They are stable ground unles
 5. **Location / geo (validated).** `location` is a `point` (lat/lng) carried by **Shop** and **Client** only. An **Activity inherits its Shop's location** via `shop_id` (a shop is, for our concern, just a location) — activities have no location of their own. Client location supports proximity search.
 6. **Category cardinality (validated).** An activity can have **multiple categories**: the link is a many-to-many join (`ACTIVITY_CATEGORY`), not a single `category_id` on the activity.
 
-## Open decisions
+---
 
-Unresolved choices that will require future work before the schema is finalized. Each changes the shape of one or more tables.
-
-1. **Seats & availability.** `seats_available` is modeled as a counter on `SESSION`. It could instead be derived by summing bookings — a consistency-vs-simplicity trade-off.
-2. **Vendor ↔ Shop.** Assumed one vendor may own several shops. If it's strictly one shop per vendor, the two can merge.
-3. **Notification polymorphism.** `recipient_id` + `recipient_type` point to either a client or a vendor. An alternative is separate notification tables per audience.
-4. **Not yet modeled** (out of the MVP data core, will need their own modeling later): reviews of the *site* (vs. of an activity), community, chatbot, admin analytics (visitors, clicks, visit duration), booking sharing (UC 20).
+> **Open decisions** for this model are tracked separately in [open_questions/technical/data-model.md](../open_questions/technical/data-model.md).

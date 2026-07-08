@@ -1,6 +1,6 @@
 # Sequence diagrams — use case flows
 
-Flow diagrams for the use cases in [brainstorming-en.md](../brainstorming-en.md). One file per flow; each heading notes the use cases (UC) it covers.
+Flow diagrams for the use cases in [brainstorming](../../product/brainstorming.md). One file per flow; each heading notes the use cases (UC) it covers.
 
 They follow the target architecture: the **frontend never talks to the database directly** — it goes through the **Python backend API**, which is the single authority for access rules and writes. Sensitive confirmations (payment) are validated **server-side**, never from the browser.
 
