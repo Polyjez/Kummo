@@ -18,7 +18,7 @@ The v1 target is a B2B2C marketplace for discovering and booking family/senior-f
 - **Actors:** Client, Vendor, Administrator, External systems — see [../product/requirements.md](../product/requirements.md) §3.
 - **Functional requirements** (`FR-xx`) and **non-functional requirements** (`NFR-xx`): [../product/requirements.md](../product/requirements.md) §5–6.
 
-> The [../product/prd.md](../product/prd.md) describes a Glide no-code MVP. Treat it as product intent; this spec describes the hand-coded target.
+> The archived [PRD (Glide MVP intent)](../archive/prd-glide-mvp.md) describes a Glide no-code MVP. Treat it as historical product intent; this spec describes the hand-coded target.
 
 ## 2. Architecture
 

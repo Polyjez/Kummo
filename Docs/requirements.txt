@@ -1,0 +1,6 @@
+# Documentation site toolchain (MkDocs + Material theme).
+# The mkdocs.yml config lives at the repo root (../mkdocs.yml).
+# Setup:  python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
+# Serve:  (from repo root)  Docs/.venv/bin/mkdocs serve
+# Build:  (from repo root)  Docs/.venv/bin/mkdocs build
+mkdocs-material>=9.5

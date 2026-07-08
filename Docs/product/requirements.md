@@ -14,7 +14,7 @@
 
 ## 1. Context and objectives
 
-The platform connects two populations: **clients** expressing a need and **vendors / service providers** offering an offer. Unlike a classic e-commerce site, the value and revenue do **not** come from selling the vendors' products or services, but from the **connection itself**.
+The platform connects two populations: **clients** expressing a need and **vendors / service providers** offering an offer. Kummo's role is to **connect** the two and facilitate the booking; its revenue is a **percentage commission on the client's payment** for a booked activity (see §4 and [ADR 0001](../decisions/0001-payment-stripe-connect.md)), not the sale of the vendors' own products or services.
 
 The matchmaking engine relies on the characteristics of both parties, including **geographic proximity**, which is a decisive criterion.
 
@@ -24,7 +24,7 @@ An initial visual prototype was produced (static interface, without robust busin
 
 - **OBJ-01** — Allow a client to express a need and obtain a list of relevant vendors, ordered by suitability.
 - **OBJ-02** — Allow a vendor to present their offer and service area, and receive qualified connections.
-- **OBJ-03** — Monetize the connection according to a model to be validated (see §4).
+- **OBJ-03** — Monetize via a **percentage commission** on the client's payment (see §4, [ADR 0001](../decisions/0001-payment-stripe-connect.md)).
 - **OBJ-04** — Offer an accessible experience, mobile-first, adapted to a senior audience.
 - **OBJ-05** — Offer the service in German and English.
 
@@ -38,7 +38,7 @@ An initial visual prototype was produced (static interface, without robust busin
 - Entry and management of the vendor offer, including the geographic service area.
 - Expression of the client's need.
 - Multi-criteria matchmaking engine including distance.
-- Mechanism for monetizing the connection (model to be arbitrated, §4).
+- Commission-based monetization on payments processed through the platform (§4).
 - Notifications to the parties.
 - Administration and moderation back-office.
 - Usage tracking (usage statistics, basis for future engine evolutions).
@@ -46,7 +46,6 @@ An initial visual prototype was produced (static interface, without robust busin
 
 ### 2.2 Out of scope (at least for the first version)
 
-- **OUT-01** — Processing the final commercial transaction between client and vendor, *if* the chosen model does not route payment through the platform (to be confirmed, see DEC-01).
 - **OUT-02** — Advanced recommendation engine using machine learning (the v1 engine is a deterministic multi-criteria scoring; learning is a later evolution).
 - **OUT-03** — Native mobile application (responsive mobile web covers the initial need).
 - **OUT-04** — Rich real-time internal messaging between client and vendor (to be confirmed depending on the connection model, DEC-02).
@@ -72,14 +71,7 @@ An initial visual prototype was produced (static interface, without robust busin
 
 ## 4. Business model
 
-Revenue comes from the connection. The exact mechanism remains to be arbitrated (see DEC-03) among the following non-exclusive options:
-
-- **Pay-per-lead** — the vendor pays for each qualified request transmitted to them.
-- **Contact unlock** — the vendor's (or client's) contact details are hidden until a payment / an action.
-- **Vendor subscription** — access to the platform and/or increased visibility in exchange for a periodic subscription.
-- **Success commission** — collected when a connection succeeds (requires a mechanism for tracking success).
-
-The choice of model **strongly conditions** the functional requirements in section 5.6 and the architecture (see DEC-01, DEC-03).
+Revenue is a **percentage success commission on the client's payment** for a booked activity. Because the commission is a share of the actual transaction, the payment **transits through the platform** (processed via Stripe Connect) rather than being self-reported by the vendor. This is settled in [ADR 0001](../decisions/0001-payment-stripe-connect.md) — superseding the earlier open choices DEC-01 (payment routing) and DEC-03 (monetization model) — and it conditions the functional requirements in §5.6 and the architecture.
 
 ---
 
@@ -145,15 +137,14 @@ The distance between client and vendor is a central criterion of the engine. Thi
 
 ### 5.6 Monetization of the connection
 
-*(These requirements depend on the model chosen in §4 / DEC-03; to be refined once the decision is made.)*
+*(The monetization model is settled — a percentage commission via Stripe Connect, [ADR 0001](../decisions/0001-payment-stripe-connect.md). These requirements reflect it; the payout window, cancellation, and dispute rules are tracked in [open_questions/business/payment.md](../open_questions/business/payment.md).)*
 
 | Code | Requirement | Prio |
 |---|---|---|
-| FR-50 | The system records each connection as a billable event (or credit / quota consumer), according to the chosen model. | M |
-| FR-51 | Collection via an external payment provider; **no sensitive payment data transits through or is stored by the platform**. | M |
+| FR-50 | The system records each processed booking and the commission taken on it. | M |
+| FR-51 | Collection via an external payment provider (Stripe Connect); **no sensitive payment data transits through or is stored by the platform**. | M |
 | FR-52 | Payment confirmation comes exclusively from the provider (verified server-side mechanism), never from a browser-side action. | M |
-| FR-53 | The vendor (and/or the administrator) views the billing / consumption history. | M |
-| FR-54 | Management of quotas / credits / limits according to the model (e.g. a cap on connections per period). | S |
+| FR-53 | The vendor (and/or the administrator) views the billing / payout history. | M |
 
 ### 5.7 Search and discovery
 
@@ -240,7 +231,7 @@ The processing of personal data, **and in particular location data**, imposes re
 
 | Code | Requirement |
 |---|---|
-| NFR-50 | Compliance with the Swiss data protection law (**nFADP / revised FADP**) and, if persons located in the EU are concerned, with the **GDPR**. The exact regulatory scope is to be confirmed (DEC-06). |
+| NFR-50 | Compliance with the **GDPR**. Scope is **Berlin only** with no Swiss nexus, so the Swiss nFADP is out of scope ([ADR 0001](../decisions/0001-payment-stripe-connect.md), OQ-PAY-6). |
 | NFR-51 | **Minimization**: collect only the necessary data; for location, prefer the lowest granularity sufficient for the business (FR-43). |
 | NFR-52 | Explicit consent for geolocation and usage collection; clear information about the purposes. |
 | NFR-53 | Exercise of rights: access, rectification, erasure (consistent with FR-03), portability where applicable. |
@@ -280,7 +271,7 @@ Validation of these specifications, arbitration of the §9 decisions, definition
 Accounts and profiles (FR-01→04, FR-10→12), expression of the need (FR-20→22), basic geolocation (FR-40→44), matchmaking engine v1 (FR-30→34), email notification (FR-70→72), minimal back-office (FR-80, FR-83). Accessible, mobile-first, DE/EN interface on the main flow screens.
 
 **Iteration 2 — Monetization**
-Connection billing mechanism according to the chosen model (FR-50→54), billing history, supervision back-office.
+Commission billing on processed payments (FR-50→53, [ADR 0001](../decisions/0001-payment-stripe-connect.md)), billing/payout history, supervision back-office.
 
 **Iteration 3 — Enrichment**
 Search / discovery (FR-60→61), configuration of weights (FR-32), multilingualism of dynamic content (FR-13), real-time notifications (FR-70), full usage tracking (FR-90→92).

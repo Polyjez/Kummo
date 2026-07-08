@@ -2,6 +2,9 @@
 
 **Goal:** B2B2C platform / marketplace connecting parents with workshops (ateliers).
 
+!!! note "Historical brainstorm"
+    Early, pre-decision notes kept for context. Where an item here conflicts with the [decision records](../decisions/README.md) — e.g. booking tooling ([ADR 0002](../decisions/0002-booking-build-vs-buy.md)) or the commission / payout model ([ADR 0001](../decisions/0001-payment-stripe-connect.md)) — the ADRs govern. The use-case numbers (UC 1–24) are referenced by the [sequence diagrams](../engineering/sequence-diagrams/README.md), so they are kept stable.
+
 ## MVP
 
 ### Home page
@@ -42,8 +45,8 @@
 
 ## Features
 
-- **Booking** — e.g. [Calendly](https://calendly.com)
-- **Payment solution** — e.g. [Stripe](https://stripe.com)
+- **Booking** — dedicated in-house module (see [ADR 0002](../decisions/0002-booking-build-vs-buy.md))
+- **Payment solution** — [Stripe](https://stripe.com) (Stripe Connect, see [ADR 0001](../decisions/0001-payment-stripe-connect.md))
 - **AI recommendations / personalization**
 - **Community**
 - **Chatbot**

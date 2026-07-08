@@ -12,4 +12,4 @@ Technical, developer-facing documentation — the *how*. Start here for the impl
 
 Python (FastAPI) backend owns all business logic and is the single authority for access rules and writes; the frontend never talks to the database directly. Supabase provides managed PostgreSQL + Auth/Storage/Realtime. Business-logic tables are accessed via SQLAlchemy 2.0 (async) with Alembic migrations ([ADR 0003](../decisions/0003-persistence-sqlalchemy.md)); Storage/Auth use the Supabase client. Payments run through Stripe Connect with a custom booking module ([ADR 0001](../decisions/0001-payment-stripe-connect.md), [ADR 0002](../decisions/0002-booking-build-vs-buy.md)).
 
-> Note: the [../product/prd.md](../product/prd.md) describes a *Glide* no-code MVP — that is product intent, not the target architecture documented here.
+> Note: the archived [PRD (Glide MVP intent)](../archive/prd-glide-mvp.md) describes a *Glide* no-code MVP — historical product intent, superseded by the ADRs and not the target architecture documented here.

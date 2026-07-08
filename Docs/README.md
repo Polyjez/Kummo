@@ -25,8 +25,7 @@ Docs/
 | Document | What it is |
 |---|---|
 | [product/requirements.md](product/requirements.md) | Functional & non-functional requirements (canonical, EN). §9 open decisions in [open_questions/business/requirements.md](open_questions/business/requirements.md). |
-| [product/prd.md](product/prd.md) | Product Requirements Document (v2.0, Glide-aligned). Product **intent**; the target build is hand-coded, not Glide. |
-| [product/brainstorming.md](product/brainstorming.md) | Early feature brainstorming and use-case list. |
+| [product/brainstorming.md](product/brainstorming.md) | Early feature brainstorming and use-case list (historical). |
 
 ## Technical — [engineering/](engineering/)
 
@@ -61,4 +60,4 @@ All open questions are gathered here, split by audience. See the [open-questions
 
 ## Archive — [archive/](archive/)
 
-Superseded or reference-only. [requirements.fr.md](archive/requirements.fr.md) is the original French cahier des charges (the English [product/requirements.md](product/requirements.md) is now canonical); [cahier-des-charges-artifact-url.md](archive/cahier-des-charges-artifact-url.md) is a link to an external artifact.
+Superseded or reference-only. [prd-glide-mvp.md](archive/prd-glide-mvp.md) is the original Glide-aligned PRD (v2.0), superseded by the ADRs (business model, booking, stack); [requirements.fr.md](archive/requirements.fr.md) is the original French cahier des charges (the English [product/requirements.md](product/requirements.md) is now canonical); [cahier-des-charges-artifact-url.md](archive/cahier-des-charges-artifact-url.md) is a link to an external artifact.
