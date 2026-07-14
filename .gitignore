@@ -6,3 +6,6 @@ supabase/.temp
 
 # MkDocs build output (Docs/mkdocs.yml → site_dir: ../site)
 site/
+js/env.js
+
+.env*

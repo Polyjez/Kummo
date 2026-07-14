@@ -58,6 +58,53 @@ All open questions are gathered here, split by audience. See the [open-questions
 - [data-model.md](open_questions/technical/data-model.md) — seats/availability, vendor↔shop, notifications
 - [persistence.md](open_questions/technical/persistence.md) — team SQLAlchemy/Alembic conventions
 
+## Development
+
+### Database migration
+
+```sh
+pnpm dlx supabase migration new new_migration
+# update SQL file
+pnpm dlx supabase db push
+```
+
+### Local Development (Supabase)
+
+Run a local Supabase stack with seed data — no impact on production.
+
+**Prerequisites:** Docker / Podman must be running.
+
+with **Podman**, exports the following:
+`export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/podman/podman.sock`
+
+```sh
+pnpm install
+pnpm db:start       # starts local Supabase (first run pulls Docker images)
+pnpm db:reset       # applies all migrations + seeds test data
+pnpm serve          # serves the static site on port 5500
+```
+
+Open `http://localhost:5500?dev=true` — the app reads from the local Supabase instance.
+
+**Dev mode activation (pick one):**
+- URL param: append `?dev=true` to any page URL
+- Persist: run `localStorage.setItem('kummo_dev', 'true')` in the browser console
+
+**Dev mode deactivation:**
+- Remove `?dev=true` from the URL, or
+- Run `localStorage.removeItem('kummo_dev')` in the browser console
+
+Without dev mode, the app hits the production Supabase project as usual.
+
+**Other commands:**
+```sh
+pnpm db:stop        # stops the local Supabase stack
+pnpm db:reset       # re-applies migrations + re-seeds (wipes local data)
+pnpm dlx supabase status    # shows local URLs and anon key
+```
+
+**Seed data includes:** 10 shops, 22 activities, 4 users, 6 children, 8 bookings. See `supabase/seed.sql`.
+
 ## Archive — [archive/](archive/)
 
 Superseded or reference-only. [prd-glide-mvp.md](archive/prd-glide-mvp.md) is the original Glide-aligned PRD (v2.0), superseded by the ADRs (business model, booking, stack); [requirements.fr.md](archive/requirements.fr.md) is the original French cahier des charges (the English [product/requirements.md](product/requirements.md) is now canonical); [cahier-des-charges-artifact-url.md](archive/cahier-des-charges-artifact-url.md) is a link to an external artifact.
