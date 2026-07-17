@@ -1,0 +1,15 @@
+# Engineering documentation
+
+Technical, developer-facing documentation — the *how*. Start here for the implementation view; the *what* (product intent) lives in [../product/](../product/), and the *why* behind key technical choices lives in [../decisions/](../decisions/).
+
+## Reading order
+
+1. **[specification.md](specification.md)** — the consolidated developer specification (entry point). Ties the product requirements, data model, flows, and decisions into one buildable reference. Contains `TODO` markers where sections are still to be authored.
+2. **[data-model.md](data-model.md)** — conceptual ER model (entities, relationships, settled assumptions). Open modeling choices in [open_questions/technical/data-model.md](../open_questions/technical/data-model.md).
+3. **[sequence-diagrams/](sequence-diagrams/)** — one flow per use case, following the target architecture (frontend → Python API → Supabase; server-side payment confirmation). See its [README](sequence-diagrams/README.md) for the use-case coverage map.
+
+## Architecture in one paragraph
+
+Python (FastAPI) backend owns all business logic and is the single authority for access rules and writes; the frontend never talks to the database directly. Supabase provides managed PostgreSQL + Auth/Storage/Realtime. Business-logic tables are accessed via SQLAlchemy 2.0 (async) with Alembic migrations ([ADR 0003](../decisions/0003-persistence-sqlalchemy.md)); Storage/Auth use the Supabase client. Payments run through Stripe Connect with a custom booking module ([ADR 0001](../decisions/0001-payment-stripe-connect.md), [ADR 0002](../decisions/0002-booking-build-vs-buy.md)).
+
+> Note: the archived [PRD (Glide MVP intent)](../archive/prd-glide-mvp.md) describes a *Glide* no-code MVP — historical product intent, superseded by the ADRs and not the target architecture documented here.

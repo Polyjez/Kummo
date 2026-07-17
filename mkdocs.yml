@@ -1,0 +1,115 @@
+site_name: Kummo Documentation
+site_description: >-
+  Documentation for Kummo, a B2B2C platform for discovering and booking
+  family- and senior-friendly activities in Berlin.
+site_author: Kummo team
+
+# Documentation Markdown lives under Docs/; build output goes to site/.
+docs_dir: Docs
+site_dir: site
+use_directory_urls: true
+
+theme:
+  name: material
+  language: en
+  icon:
+    logo: material/map-marker-radius
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-night
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: teal
+      accent: teal
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - toc.follow
+    - content.code.copy
+    - search.suggest
+    - search.highlight
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+
+plugins:
+  - search
+
+# Non-documentation files that happen to live in docs_dir.
+exclude_docs: |
+  requirements.txt
+  .venv/
+
+nav:
+  - Home: README.md
+  - Product:
+      - product/README.md
+      - Requirements: product/requirements.md
+      - Brainstorming: product/brainstorming.md
+  - Engineering:
+      - Overview: engineering/README.md
+      - Specification: engineering/specification.md
+      - Data model: engineering/data-model.md
+      - Sequence diagrams:
+          - Overview: engineering/sequence-diagrams/README.md
+          - 0. Authentication: engineering/sequence-diagrams/00-authentication.md
+          - 1. Discover activities: engineering/sequence-diagrams/01-discover-activities.md
+          - 2. Book & pay: engineering/sequence-diagrams/02-book-and-pay.md
+          - 3. Change a booking: engineering/sequence-diagrams/03-change-booking.md
+          - 4. Cancel & refund: engineering/sequence-diagrams/04-cancel-refund.md
+          - 5. Review an activity: engineering/sequence-diagrams/05-review.md
+          - 6. Client space: engineering/sequence-diagrams/06-client-space.md
+          - 7. Vendor management: engineering/sequence-diagrams/07-vendor-management.md
+          - 8. Vendor cancel/reschedule: engineering/sequence-diagrams/08-vendor-cancel-reschedule.md
+          - 9. Reminder: engineering/sequence-diagrams/09-reminder.md
+          - 10. Support: engineering/sequence-diagrams/10-support.md
+          - 11. Share a booking: engineering/sequence-diagrams/11-share-booking.md
+  - Decisions (ADRs):
+      - Overview: decisions/README.md
+      - 0001 — Payment via Stripe Connect: decisions/0001-payment-stripe-connect.md
+      - 0002 — Booking build vs. buy: decisions/0002-booking-build-vs-buy.md
+      - 0003 — Persistence (SQLAlchemy): decisions/0003-persistence-sqlalchemy.md
+  - Open questions:
+      - Overview: open_questions/README.md
+      - Business:
+          - open_questions/business/README.md
+          - Payment: open_questions/business/payment.md
+          - Booking build vs. buy: open_questions/business/booking-build-vs-buy.md
+          - Requirements: open_questions/business/requirements.md
+      - Technical:
+          - open_questions/technical/README.md
+          - Data model: open_questions/technical/data-model.md
+          - Persistence: open_questions/technical/persistence.md
+  - Archive:
+      - archive/README.md
+      - PRD (Glide MVP intent, superseded): archive/prd-glide-mvp.md
+      - Requirements (FR, original): archive/requirements.fr.md
+      - Cahier des charges (artifact link): archive/cahier-des-charges-artifact-url.md
