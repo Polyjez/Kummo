@@ -128,7 +128,7 @@ The distance between client and vendor is a central criterion of the engine. Thi
 
 | Code | Requirement | Prio |
 |---|---|---|
-| FR-40 | The vendor defines their service area. **Modality to be arbitrated** (DEC-05): radius around an anchor point, or list of administrative zones (cantons / municipalities / postal codes), or a combination. | M |
+| FR-40 | The vendor defines their service area. **Modality to be arbitrated** (DEC-05): radius around an anchor point, or list of administrative zones (boroughs / postal codes), or a combination. | M |
 | FR-41 | The client's location is obtained by address / postal code entry, and/or device geolocation (with consent). | M |
 | FR-42 | The system computes the client ↔ vendor distance and uses it as a scoring criterion (FR-31) and as displayed information (FR-34). | M |
 | FR-43 | The stored location precision must be **minimal and proportionate**: a reduced level of precision (postal code / locality) is preferred if the business need allows (see §6.6). | M |
@@ -137,7 +137,7 @@ The distance between client and vendor is a central criterion of the engine. Thi
 
 ### 5.6 Monetization of the connection
 
-*(The monetization model is settled — a percentage commission via Stripe Connect, [ADR 0001](../decisions/0001-payment-stripe-connect.md). These requirements reflect it; the payout window, cancellation, and dispute rules are tracked in [open_questions/business/payment.md](../open_questions/business/payment.md).)*
+*(The monetization model is settled — a percentage commission via Stripe Connect, [ADR 0001](../decisions/0001-payment-stripe-connect.md). These requirements reflect it; the payout window, cancellation, and dispute rules are also settled there.)*
 
 | Code | Requirement | Prio |
 |---|---|---|
@@ -231,7 +231,7 @@ The processing of personal data, **and in particular location data**, imposes re
 
 | Code | Requirement |
 |---|---|
-| NFR-50 | Compliance with the **GDPR**. Scope is **Berlin only** with no Swiss nexus, so the Swiss nFADP is out of scope ([ADR 0001](../decisions/0001-payment-stripe-connect.md), OQ-PAY-6). |
+| NFR-50 | Compliance with the **GDPR**. Scope is **Berlin only** ([ADR 0001](../decisions/0001-payment-stripe-connect.md)). |
 | NFR-51 | **Minimization**: collect only the necessary data; for location, prefer the lowest granularity sufficient for the business (FR-43). |
 | NFR-52 | Explicit consent for geolocation and usage collection; clear information about the purposes. |
 | NFR-53 | Exercise of rights: access, rectification, erasure (consistent with FR-03), portability where applicable. |

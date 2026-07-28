@@ -57,14 +57,14 @@ Authoritative source: [../product/requirements.md](../product/requirements.md) �
 - **Mobile-first (NFR-20–21).**
 - **Performance (NFR-30–31):** matching response perceived as immediate (target < 2s).
 - **Security (NFR-40–42):** sensitive operations server-side; HTTPS; safe secret management.
-- **Data protection (NFR-50–54):** GDPR (Berlin scope; Swiss nFADP out — see [../open_questions/business/payment.md](../open_questions/business/payment.md) OQ-PAY-6); data minimization, especially for location.
+- **Data protection (NFR-50–54):** GDPR (Berlin scope — see [ADR 0001](../decisions/0001-payment-stripe-connect.md)); data minimization, especially for location.
 - `TODO` — Concrete acceptance criteria / test plan per NFR.
 
 ## 7. Open questions blocking the build
 
 Consolidated from the per-document open-question files:
 
-- **Payment (blocking):** payout timing, cancellation policy, dispute handling — [../open_questions/business/payment.md](../open_questions/business/payment.md).
+- **Payment:** no longer blocking — all payment open questions (payout timing, cancellation policy, dispute handling, commission rate, vendor onboarding, checkout transparency) are resolved, see [ADR 0001](../decisions/0001-payment-stripe-connect.md).
 - **Data model:** seats/availability, vendor↔shop cardinality, notification polymorphism — [../open_questions/technical/data-model.md](../open_questions/technical/data-model.md).
 - **Product decisions:** messaging vs. contact exchange (DEC-02), dynamic-content i18n (DEC-04), service-area modality (DEC-05), engine weights (DEC-07) — [../open_questions/business/requirements.md](../open_questions/business/requirements.md).
 - **Persistence:** team SQLAlchemy/Alembic conventions — [../open_questions/technical/persistence.md](../open_questions/technical/persistence.md).

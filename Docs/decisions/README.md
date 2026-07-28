@@ -6,7 +6,7 @@ Architecture Decision Records for Kummo. Each ADR captures a **settled** decisio
 
 | # | Decision | Status | Open questions |
 |---|---|---|---|
-| [0001](0001-payment-stripe-connect.md) | Payment: commission via Stripe Connect | Accepted | [business/payment](../open_questions/business/payment.md) — 6 open, 1 resolved |
+| [0001](0001-payment-stripe-connect.md) | Payment: commission via Stripe Connect | Accepted | none — fully resolved |
 | [0002](0002-booking-build-vs-buy.md) | Booking platform: build in-house vs. buy | Accepted | [business/booking-build-vs-buy](../open_questions/business/booking-build-vs-buy.md) — 1 open |
 | [0003](0003-persistence-sqlalchemy.md) | Persistence layer: SQLAlchemy 2.0 + Alembic | Accepted | [technical/persistence](../open_questions/technical/persistence.md) — 1 open |
 
