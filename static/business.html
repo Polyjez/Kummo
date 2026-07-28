@@ -16,8 +16,8 @@
       <a class="logo" href="index.html">Kum<span>mo</span></a>
       <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">☰ Menü</button>
       <nav class="nav-main" id="main-nav">
-        <a href="suchen.html">Aktivitäten</a>
-        <a href="profil.html">Mein Profil</a>
+        <a href="search.html">Aktivitäten</a>
+        <a href="profile.html">Mein Profil</a>
         <a href="business.html" aria-current="page">Für Anbieter</a>
         <a href="admin.html">Admin</a>
         <a href="#" id="logout-btn" style="display: none;">Abmelden</a>
@@ -26,22 +26,18 @@
   </header>
 
   <main class="container" style="padding:2rem 0 4rem">
-    <!-- Login form -->
+    <!-- Shop selector (temporary until authentication is implemented) -->
     <div id="login-section" style="max-width: 500px; margin: 0 auto 2rem;">
       <h2>Anbieter-Anmeldung</h2>
-      <form id="business-login-form" onsubmit="event.preventDefault(); loginBusiness();">
+      <form id="business-login-form">
         <div class="form-row">
-          <label>E-Mail
-            <input type="email" id="login-email" required placeholder="z. B. info@lilafarbe-berlin.de">
+          <label>Anbieter auswählen
+            <select id="shop-select" required>
+              <option value="">— Anbieter wählen —</option>
+            </select>
           </label>
         </div>
-        <div class="form-row">
-          <label>Passwort
-            <input type="password" id="login-password" required>
-          </label>
-        </div>
-        <button type="submit" class="btn btn-primary">Anmelden</button>
-        <p id="login-error" style="color: var(--terracotta); margin-top: 1rem;"></p>
+        <button type="submit" class="btn btn-primary">Dashboard öffnen</button>
       </form>
     </div>
 
@@ -153,90 +149,62 @@
     <p class="footer-bottom container">© 2026 Kummo</p>
   </footer>
 
-  <!-- Environment config (must load before Supabase SDK) -->
-  <script src="js/config.js"></script>
-  <!-- Load the Supabase SDK then initialize the client (ONLY here) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script>
-    // Initialize Supabase once (supabase = global UMD lib)
-    window.supabase = supabase.createClient(
-      KummoConfig.supabaseUrl,
-      KummoConfig.supabaseAnonKey
-    );
-  </script>
-
-  <!-- Code specific to business.html -->
   <script>
     // =============================================
-    // 1. Login
+    // 1. Select shop (replaces login until auth is implemented)
     // =============================================
-    async function loginBusiness() {
-      const email = document.getElementById('login-email').value;
-      const password = document.getElementById('login-password').value;
-
-      const { data, error } = await window.supabase.auth.signInWithPassword({
-        email,
-        password
+    async function loadShopSelector() {
+      const res = await fetch('/api/shops');
+      if (!res.ok) return;
+      const shops = await res.json();
+      const select = document.getElementById('shop-select');
+      shops.forEach((shop) => {
+        const opt = document.createElement('option');
+        opt.value = shop.id;
+        opt.textContent = shop.name;
+        select.appendChild(opt);
       });
+    }
 
-      if (error) {
-        document.getElementById('login-error').textContent = error.message;
-        return;
-      }
+    async function openDashboard(shopId) {
+      const res = await fetch('/api/shops');
+      const shops = await res.json();
+      const shop = shops.find((s) => s.id === shopId);
+      if (!shop) return;
 
-      const user = data.user;
-
-      // Check whether the user is a shop
-      const { data: shop, error: shopError } = await window.supabase
-        .from('shops')
-        .select('*')
-        .eq('id', user.id)
-        .single();
-
-      if (shopError || !shop) {
-        document.getElementById('login-error').textContent = 'Kein Anbieter-Konto mit dieser E-Mail gefunden.';
-        await window.supabase.auth.signOut();
-        return;
-      }
-
-      // Store session info
       localStorage.setItem('user_type', 'business');
-      localStorage.setItem('user_id', user.id);
-      localStorage.setItem('shop_session', user.id);
+      localStorage.setItem('shop_session', shopId);
 
-      // Show the dashboard
       document.getElementById('login-section').style.display = 'none';
       document.getElementById('dashboard-content').style.display = 'block';
-      document.getElementById('business-name').innerHTML = `Demo: <strong>${shop.name}</strong> — Aktivitäten & Buchungen verwalten`;
+      document.getElementById('business-name').innerHTML =
+        `<strong>${shop.name}</strong> — Aktivitäten & Buchungen verwalten`;
+      document.getElementById('logout-btn').style.display = 'inline';
+      document.getElementById('logout-btn').onclick = logout;
 
-      // Load activities
-      await loadDashboardData(user.id);
+      await loadDashboardData(shopId);
     }
 
     // =============================================
     // 2. Load dashboard data
     // =============================================
     async function loadDashboardData(shopId) {
-      const { data: activities, error } = await window.supabase
-        .from('activities')
-        .select('*')
-        .eq('shop_id', shopId);
-
-      if (error) {
-        console.error('Error:', error);
+      const res = await fetch(`/api/activities?shop_id=${shopId}`);
+      if (!res.ok) {
+        console.error('Failed to load activities:', res.status);
         return;
       }
+      const activities = await res.json();
 
       document.getElementById('biz-activity-count').textContent = activities.length;
 
-      const tbody = document.getElementById('biz-activities');
-      tbody.innerHTML = activities.map(activity => `
+      document.getElementById('biz-activities').innerHTML = activities.map((a) => `
         <tr>
-          <td>${activity.title}</td>
-          <td>${activity.price}€</td>
-          <td>${activity.participants_max}</td>
-          <td>${activity.age_group}</td>
-          <td><a href="aktivitaet.html?id=${activity.id}" class="btn btn-sm btn-outline">Ansehen</a></td>
+          <td>${a.title}</td>
+          <td>${a.price}€</td>
+          <td>${a.participants_max}</td>
+          <td>${a.age_group}</td>
+          <td><a href="activity.html?id=${a.id}" class="btn btn-sm btn-outline">Ansehen</a></td>
         </tr>
       `).join('');
     }
@@ -247,11 +215,11 @@
     async function addActivity() {
       const shopId = localStorage.getItem('shop_session');
       if (!shopId) {
-        alert('Bitte melden Sie sich zuerst an.');
+        alert('Bitte wählen Sie zuerst einen Anbieter aus.');
         return;
       }
 
-      const newActivity = {
+      const body = {
         shop_id: shopId,
         title: document.getElementById('activity-title').value,
         description: document.getElementById('activity-description').value,
@@ -259,72 +227,53 @@
         participants_max: parseInt(document.getElementById('activity-max-participants').value),
         duration: document.getElementById('activity-duration').value,
         age_group: document.getElementById('activity-age-group').value,
-        picture: document.getElementById('activity-photo').value || "https://via.placeholder.com/400x250"
-        // Note: the schema has no `disponibilites`/availability column yet, so
-        // the availability form field is not persisted.
+        picture: document.getElementById('activity-photo').value || undefined,
       };
 
-      const { error } = await window.supabase
-        .from('activities')
-        .insert([newActivity]);
+      const res = await fetch('/api/activities', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
 
-      if (error) {
-        alert(`Fehler: ${error.message}`);
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        alert(`Fehler: ${err.detail ?? res.status}`);
         return;
       }
 
-      alert(`Aktivität "${newActivity.title}" wurde gespeichert!`);
-      await loadDashboardData(shopId);
-
-      // Reset the form
-      document.getElementById('business-login-form').reset();
+      const created = await res.json();
+      alert(`Aktivität "${created.title}" wurde gespeichert!`);
       document.querySelector('form[onsubmit*="addActivity"]').reset();
+      await loadDashboardData(shopId);
     }
 
     // =============================================
     // 4. Logout
     // =============================================
-    async function logout() {
-      await window.supabase.auth.signOut();
+    function logout() {
       localStorage.removeItem('user_type');
-      localStorage.removeItem('user_id');
       localStorage.removeItem('shop_session');
-      window.location.href = 'index.html';
+      document.getElementById('login-section').style.display = 'block';
+      document.getElementById('dashboard-content').style.display = 'none';
+      document.getElementById('logout-btn').style.display = 'none';
     }
 
     // =============================================
-    // 5. Update the logout button
-    // =============================================
-    async function updateLogoutButton() {
-      const logoutBtn = document.getElementById('logout-btn');
-      if (!logoutBtn) return;
-
-      const { data: { user } } = await window.supabase.auth.getUser();
-      logoutBtn.style.display = user ? 'inline' : 'none';
-      if (user) logoutBtn.onclick = logout;
-    }
-
-    // =============================================
-    // 6. Initialization on page load
+    // 5. Initialization on page load
     // =============================================
     document.addEventListener('DOMContentLoaded', async () => {
-      await updateLogoutButton();
+      await loadShopSelector();
 
-      const { data: { user } } = await window.supabase.auth.getUser();
-      if (user) {
-        const { data: shop, error } = await window.supabase
-          .from('shops')
-          .select('*')
-          .eq('id', user.id)
-          .single();
+      document.getElementById('business-login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const shopId = document.getElementById('shop-select').value;
+        if (shopId) await openDashboard(shopId);
+      });
 
-        if (!error && shop) {
-          document.getElementById('login-section').style.display = 'none';
-          document.getElementById('dashboard-content').style.display = 'block';
-          document.getElementById('business-name').innerHTML = `Demo: <strong>${shop.name}</strong> — Aktivitäten & Buchungen verwalten`;
-          await loadDashboardData(user.id);
-        }
-      }
+      // Restore session if still active
+      const shopId = localStorage.getItem('shop_session');
+      if (shopId) await openDashboard(shopId);
     });
   </script>
 

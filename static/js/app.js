@@ -1,9 +1,8 @@
-// Kummo — loads data from Supabase and drives every page.
+// Kummo — drives every page. Data is loaded from the FastAPI backend (/api/*).
 // Field names mirror the Supabase columns (title, price, name, address,
 // activity_type, age_group, participants_max, duration, picture, shop_id, ...).
 // UI strings stay in German. Note: there is no `disponibilites`/availability
 // column in the schema, so that data is guarded as optional.
-console.log('app.js loaded');
 let shops = [];
 let activities = [];
 
@@ -13,51 +12,22 @@ const STORAGE_BOOKINGS = 'kummo_bookings';
 const STORAGE_FAVORITES = 'kummo_favorites';
 
 function initApp() {
-  console.log('initApp() called');
-  if (!window.supabase) {
-    console.error('Supabase not initialized! Check that the SDK is loaded in the HTML.');
-    return;
-  }
-  // Make sure window.supabase.from is available
-  if (typeof window.supabase.from === 'function') {
-    console.log('window.supabase.from is available, calling loadData()');
-    loadData();
-  } else {
-    console.error('window.supabase.from is not a function!');
-  }
+  loadData();
 }
 
 // =============================================
-// 1. Load data from Supabase
+// 1. Load data from the API
 // =============================================
 async function loadData() {
-  console.log('loadData() START');
   try {
-    console.log('Loading data from Supabase...');
-
-    // Use window.supabase directly (no local variable)
-    console.log('Requesting shops...');
-    const { data: shopsData, error: shopsError } = await window.supabase
-      .from('shops')
-      .select('*');
-
-    console.log('Shops query result:', { shopsData, shopsError });
-
-    if (shopsError) throw shopsError;
-
-    // Load activities
-    console.log('Requesting activities...');
-    const { data: activitiesData, error: activitiesError } = await window.supabase
-      .from('activities')
-      .select('*');
-
-    console.log('Activities query result:', { activitiesData, activitiesError });
-
-    if (activitiesError) throw activitiesError;
-
-    shops = shopsData;
-    activities = activitiesData;
-    console.log('Data loaded successfully:', { shops, activities });
+    const [shopsRes, activitiesRes] = await Promise.all([
+      fetch('/api/shops'),
+      fetch('/api/activities'),
+    ]);
+    if (!shopsRes.ok) throw new Error(`shops: ${shopsRes.status}`);
+    if (!activitiesRes.ok) throw new Error(`activities: ${activitiesRes.status}`);
+    shops = await shopsRes.json();
+    activities = await activitiesRes.json();
     initPage();
   } catch (error) {
     console.error('Error while loading data:', error);
@@ -66,11 +36,7 @@ async function loadData() {
 }
 
 function showLoadError() {
-  const hint =
-    window.location.protocol === 'file:'
-      ? ' Bitte starten Sie einen lokalen Server (z. B. Live Server) und öffnen http://localhost:5500'
-      : '';
-  const msg = `<p class="empty-state" style="color:#DC562E">Aktivitäten konnten nicht geladen werden.${hint}</p>`;
+  const msg = '<p class="empty-state" style="color:#DC562E">Aktivitäten konnten nicht geladen werden.</p>';
   const el =
     document.getElementById('featured-activities') ||
     document.getElementById('search-results') ||
@@ -84,11 +50,11 @@ function showLoadError() {
 function initPage() {
   const path = window.location.pathname;
 
-  if (path.includes('aktivitaet.html')) {
+  if (path.includes('activity.html')) {
     showActivityDetail();
     return;
   }
-  if (path.includes('profil.html')) {
+  if (path.includes('profile.html')) {
     initProfilePage();
     return;
   }
@@ -100,7 +66,7 @@ function initPage() {
     initAdminDashboard();
     return;
   }
-  if (path.includes('suchen.html')) {
+  if (path.includes('search.html')) {
     initSearchPage();
     return;
   }
@@ -140,7 +106,7 @@ function activityCardHtml(activity) {
         <h3>${a.title}</h3>
         <p>📍 ${a.address}</p>
         <p>💰 ${a.price} € · 👥 ${a.participants_max} · ⏳ ${a.duration}</p>
-        <a class="btn btn-primary btn-sm stretched-link" href="aktivitaet.html?id=${a.id}">Details & Buchen</a>
+        <a class="btn btn-primary btn-sm stretched-link" href="activity.html?id=${a.id}">Details & Buchen</a>
       </div>
     </article>`;
 }
@@ -221,7 +187,7 @@ function buildSearchUrl(filters) {
     if (v && v !== 'all') params.set(k, v);
   });
   const qs = params.toString();
-  return `suchen.html${qs ? `?${qs}` : ''}`;
+  return `search.html${qs ? `?${qs}` : ''}`;
 }
 
 function initHomeSearch() {
@@ -282,7 +248,7 @@ function showActivityDetail() {
 
   const activity = activities.find((a) => a.id === activityId);
   if (!activity) {
-    container.innerHTML = '<p class="empty-state">Aktivität nicht gefunden. <a href="suchen.html">Zurück zur Suche</a></p>';
+    container.innerHTML = '<p class="empty-state">Aktivität nicht gefunden. <a href="search.html">Zurück zur Suche</a></p>';
     return;
   }
 
@@ -555,36 +521,30 @@ function initChatbot() {
 }
 
 // =============================================
-// 14. Logout handling
+// 14. Logout handling (business.html only — clears session storage)
 // =============================================
-async function logout() {
-  // End the Supabase session (v2 API), not just the local cosmetic keys
-  await window.supabase?.auth?.signOut();
+function logout() {
   localStorage.removeItem('user_type');
   localStorage.removeItem('user_id');
   localStorage.removeItem('shop_session');
   window.location.href = 'index.html';
 }
 
-async function updateLogoutButton() {
+function updateLogoutButton() {
   const logoutBtn = document.getElementById('logout-btn');
   if (!logoutBtn) return;
-
-  // Uses window.supabase (already initialized in the HTML) — v2 API
-  const { data } = (await window.supabase?.auth?.getUser()) || { data: {} };
-  const user = data?.user;
-  logoutBtn.style.display = user ? 'inline' : 'none';
-  if (user) logoutBtn.onclick = logout;
+  const isLoggedIn = !!localStorage.getItem('user_type');
+  logoutBtn.style.display = isLoggedIn ? 'inline' : 'none';
+  if (isLoggedIn) logoutBtn.onclick = logout;
 }
 
 // =============================================
 // Final initialization
 // =============================================
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('DOMContentLoaded - calling initApp()');
   initNav();
   initChatbot();
-  initApp(); // Calls initApp() to verify window.supabase before loading data
+  initApp();
   updateLogoutButton();
 });
 

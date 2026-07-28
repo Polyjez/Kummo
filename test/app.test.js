@@ -4,7 +4,7 @@
 // app.js is a "classic" script (loaded via <script> in the browser).
 // We import it here for its side effect: it attaches its API to globalThis.KummoApp.
 import { describe, it, expect, beforeEach } from 'vitest';
-import '../js/app.js';
+import '../static/js/app.js';
 
 const app = globalThis.KummoApp;
 
@@ -86,7 +86,7 @@ describe('activityCardHtml', () => {
 describe('buildSearchUrl', () => {
   it('encodes only meaningful filters and emits no literal ${ (regression)', () => {
     const url = app.buildSearchUrl({ q: 'malen', age: 'all', category: 'kunst', maxPrice: '' });
-    expect(url.startsWith('suchen.html?')).toBe(true);
+    expect(url.startsWith('search.html?')).toBe(true);
     expect(url).toContain('q=malen');
     expect(url).toContain('category=kunst');
     expect(url).not.toContain('age=all');
@@ -94,7 +94,7 @@ describe('buildSearchUrl', () => {
   });
 
   it('returns the bare page when there are no filters', () => {
-    expect(app.buildSearchUrl({ age: 'all', category: 'all' })).toBe('suchen.html');
+    expect(app.buildSearchUrl({ age: 'all', category: 'all' })).toBe('search.html');
   });
 });
 

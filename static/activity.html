@@ -4,10 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Aktivität — Kummo</title>
-  <!-- Environment config (must load before Supabase SDK) -->
-  <script src="js/config.js"></script>
-  <!-- Load the Supabase SDK ONLY here (once) -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
@@ -20,8 +16,8 @@
       <a class="logo" href="index.html">Kum<span>mo</span></a>
       <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">☰ Menü</button>
       <nav class="nav-main" id="main-nav">
-        <a href="suchen.html">Aktivitäten</a>
-        <a href="profil.html">Mein Profil</a>
+        <a href="search.html">Aktivitäten</a>
+        <a href="profile.html">Mein Profil</a>
         <a href="business.html">Für Anbieter</a>
         <a href="admin.html">Admin</a>
         <a href="#" id="logout-btn" style="display: none;">Abmelden</a>
@@ -34,7 +30,7 @@
   </main>
 
   <footer class="site-footer">
-    <p class="footer-bottom container"><a href="suchen.html" style="color:var(--mint)">← Zurück zur Suche</a></p>
+    <p class="footer-bottom container"><a href="search.html" style="color:var(--mint)">← Zurück zur Suche</a></p>
   </footer>
 
   <button type="button" class="chat-fab" id="chat-fab" aria-label="Chat öffnen">💬</button>
@@ -45,16 +41,6 @@
     <button type="button" class="btn btn-sm btn-primary" id="chat-send" style="margin-top:0.5rem;width:100%">Senden</button>
   </div>
 
-  <!-- Initialize Supabase (ONLY here) -->
-  <script>
-    // Initialize Supabase once
-    window.supabase = window.supabase.createClient(
-      KummoConfig.supabaseUrl,
-      KummoConfig.supabaseAnonKey
-    );
-  </script>
-
-  <!-- Load app.js (which uses window.supabase) -->
   <script src="js/app.js" defer></script>
 </body>
 </html>

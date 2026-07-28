@@ -16,8 +16,8 @@
       <a class="logo" href="index.html">Kum<span>mo</span></a>
       <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">☰ Menü</button>
       <nav class="nav-main" id="main-nav">
-        <a href="suchen.html">Aktivitäten</a>
-        <a href="profil.html">Mein Profil</a>
+        <a href="search.html">Aktivitäten</a>
+        <a href="profile.html">Mein Profil</a>
         <a href="business.html">Für Anbieter</a>
         <a href="admin.html" aria-current="page">Admin</a>
       </nav>
@@ -60,16 +60,6 @@
     <p class="footer-bottom container">© 2026 Kummo</p>
   </footer>
 
-  <!-- Environment config (must load before Supabase SDK) -->
-  <script src="js/config.js"></script>
-  <!-- Load the Supabase SDK and initialize the client -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
-  <script>
-    window.supabase = supabase.createClient(
-      KummoConfig.supabaseUrl,
-      KummoConfig.supabaseAnonKey
-    );
-  </script>
   <script src="js/app.js" defer></script>
 </body>
 </html>
