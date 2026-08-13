@@ -11,4 +11,4 @@ Open questions for the conceptual model in [data-model.md](../../engineering/dat
 
 ## Related
 
-- Commission rate structure (single value vs. per-vendor/per-activity attribute) is an open question owned by the payment decision — see [../business/payment.md](../business/payment.md) (OQ-PAY-4). It affects whether `PAYMENT.commission` derives from a global rate or a stored per-entity rate.
+- Commission rate is now settled at a flat 15% across all activities (see [ADR 0001](../../decisions/0001-payment-stripe-connect.md)), so `PAYMENT.commission` can derive from a single global rate rather than a stored per-entity rate.

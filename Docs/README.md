@@ -50,9 +50,8 @@ Each ADR is a **settled** decision; its open points are gathered under [open_que
 All open questions are gathered here, split by audience. See the [open-questions index](open_questions/README.md).
 
 **Business** — [open_questions/business/](open_questions/business/)
-- [payment.md](open_questions/business/payment.md) — payout timing, cancellation, disputes, commission structure… (3 blocking)
 - [booking-build-vs-buy.md](open_questions/business/booking-build-vs-buy.md) — in-house maintenance trade-off
-- [requirements.md](open_questions/business/requirements.md) — DEC-01…07 (several now resolved by ADR 0001)
+- [requirements.md](open_questions/business/requirements.md) — DEC-02, DEC-04, DEC-05, DEC-07 (DEC-01/03/06 resolved by ADR 0001, removed)
 
 **Technical** — [open_questions/technical/](open_questions/technical/)
 - [data-model.md](open_questions/technical/data-model.md) — seats/availability, vendor↔shop, notifications
