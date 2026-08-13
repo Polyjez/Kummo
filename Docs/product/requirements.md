@@ -95,20 +95,27 @@ Revenue is a **percentage success commission on the client's payment** for a boo
 |---|---|---|
 | FR-10 | A vendor describes their offer: category(ies), description, presentation elements (text, images). | M |
 | FR-11 | A vendor defines their **geographic service area** (see §5.5 for the modalities). | M |
-| FR-12 | A vendor can indicate their availability (active / paused). | M |
+| FR-12 | A vendor can create an activity. | M |
 | FR-13 | The descriptive profile content can be provided in the supported languages (see DEC-04 on data multilingualism). | S |
 | FR-14 | A vendor views the history of connections concerning them. | M |
+| FR-15 | A vendor can add, disable, update session for an activity. | M |
 
 ### 5.3 Expression of the client's need
 
 | Code | Requirement | Prio |
 |---|---|---|
-| FR-20 | A client expresses their need through a simple guided flow (category, details, location). | M |
-| FR-21 | The flow is **minimal in number of steps** and explicit (senior constraint, see §6.1). | M |
-| FR-22 | The client provides their location (see §5.5). | M |
-| FR-23 | A client can find the history of their requests and the associated connections. | S |
+| FR-20 | A client expresses their need through a simple guided flow (category, details, location). The flow is **minimal in number of steps** and explicit (senior constraint, see §6.1). | M |
+| FR-22 | The client provides their location (see §5.5). | S |
+| FR-23 | A client can find the history of their activities requests and the associated connections. | S |
 
-### 5.4 Matchmaking engine
+### 5.4 Search and discovery
+
+| Code | Requirement | Prio |
+|---|---|---|
+| FR-60 | A client can browse / search activities by category. Simple filters (category, availability). | M |
+| FR-61 | A client can browse / search activities by area/location. | S |
+
+### 5.5 Matchmaking engine
 
 The v1 engine is a **deterministic multi-criteria scoring**: for a client request, it associates a suitability score with each candidate vendor, then returns the highest ranked. It remains deliberately simple and explainable.
 
@@ -122,7 +129,7 @@ The v1 engine is a **deterministic multi-criteria scoring**: for a client reques
 | FR-35 | For each connection, the engine records the criteria and the score used (traceability, basis for future improvement). | S |
 | FR-36 | Later evolution: adjusting the ranking based on preferences and observed usage (learning). | C |
 
-### 5.5 Geolocation and distance
+### 5.6 Geolocation and distance
 
 The distance between client and vendor is a central criterion of the engine. This domain deserves explicit treatment.
 
@@ -135,7 +142,7 @@ The distance between client and vendor is a central criterion of the engine. Thi
 | FR-44 | The user is informed of the use of their location and explicitly consents to it. | M |
 | FR-45 | Handling of edge cases: missing or imprecise location (the engine must remain functional with a degraded distance criterion rather than failing). | S |
 
-### 5.6 Monetization of the connection
+### 5.7 Monetization of the connection
 
 *(The monetization model is settled — a percentage commission via Stripe Connect, [ADR 0001](../decisions/0001-payment-stripe-connect.md). These requirements reflect it; the payout window, cancellation, and dispute rules are tracked in [open_questions/business/payment.md](../open_questions/business/payment.md).)*
 
@@ -145,13 +152,6 @@ The distance between client and vendor is a central criterion of the engine. Thi
 | FR-51 | Collection via an external payment provider (Stripe Connect); **no sensitive payment data transits through or is stored by the platform**. | M |
 | FR-52 | Payment confirmation comes exclusively from the provider (verified server-side mechanism), never from a browser-side action. | M |
 | FR-53 | The vendor (and/or the administrator) views the billing / payout history. | M |
-
-### 5.7 Search and discovery
-
-| Code | Requirement | Prio |
-|---|---|---|
-| FR-60 | A client can browse / search vendors by category and area, outside the connection flow. | S |
-| FR-61 | Simple filters (category, distance, availability). | S |
 
 ### 5.8 Notifications and communication
 
@@ -231,7 +231,7 @@ The processing of personal data, **and in particular location data**, imposes re
 
 | Code | Requirement |
 |---|---|
-| NFR-50 | Compliance with the **GDPR**. Scope is **Berlin only** with no Swiss nexus, so the Swiss nFADP is out of scope ([ADR 0001](../decisions/0001-payment-stripe-connect.md), OQ-PAY-6). |
+| NFR-50 | Compliance with the **GDPR**. Scope is **Berlin only** ([ADR 0001](../decisions/0001-payment-stripe-connect.md), OQ-PAY-6). |
 | NFR-51 | **Minimization**: collect only the necessary data; for location, prefer the lowest granularity sufficient for the business (FR-43). |
 | NFR-52 | Explicit consent for geolocation and usage collection; clear information about the purposes. |
 | NFR-53 | Exercise of rights: access, rectification, erasure (consistent with FR-03), portability where applicable. |
