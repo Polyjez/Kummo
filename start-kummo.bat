@@ -27,10 +27,10 @@ if not exist "%ENV_FILE%" (
 
 REM Read credentials for the FastAPI backend
 set "SUPABASE_URL="
-set "SUPABASE_ANON_KEY="
+set "SUPABASE_API_KEY="
 for /f "usebackq tokens=1,* delims==" %%a in ("%ENV_FILE%") do (
   if "%%a"=="SUPABASE_URL" set "SUPABASE_URL=%%b"
-  if "%%a"=="SUPABASE_ANON_KEY" set "SUPABASE_ANON_KEY=%%b"
+  if "%%a"=="SUPABASE_API_KEY" set "SUPABASE_API_KEY=%%b"
 )
 
 if not defined SUPABASE_URL (
@@ -38,8 +38,8 @@ if not defined SUPABASE_URL (
   pause
   exit /b 1
 )
-if not defined SUPABASE_ANON_KEY (
-  echo SUPABASE_ANON_KEY is missing in '%ENV_FILE%'.
+if not defined SUPABASE_API_KEY (
+  echo SUPABASE_API_KEY is missing in '%ENV_FILE%'.
   pause
   exit /b 1
 )
@@ -49,9 +49,9 @@ echo Environment: %ENV%
 REM --- Supabase (local only) ---
 if "%ENV%"=="local" (
   REM Stop any existing (possibly unhealthy) Supabase containers first
-  npx supabase stop >nul 2>&1
+  pnpm exec supabase stop >nul 2>&1
   echo Starting local Supabase instance ...
-  npx supabase start
+  pnpm exec supabase start
 )
 
 REM --- FastAPI backend ---
@@ -81,6 +81,6 @@ start "" "%URL%"
 echo.
 echo Kummo is running at %URL%
 echo Close this window to stop.
-echo To stop Supabase: npx supabase stop (local only)
+echo To stop Supabase: pnpm exec supabase stop (local only)
 echo.
 pause >nul

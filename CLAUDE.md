@@ -20,12 +20,12 @@ There are two modes, selected by the `[env]` argument to the start scripts:
 ### Local mode (default) — `./start-kummo.sh local`
 Uses a **Supabase instance running in Docker** (managed by the Supabase CLI).
 Reads credentials from `.env.local`. The start script:
-1. Stops any stale Supabase containers, then runs `npx supabase start` (Docker required).
+1. Stops any stale Supabase containers, then runs `pnpm exec supabase start` (Docker required).
 2. Patches `static/js/config.js` with the local Supabase URL + anon key (used by `business.html`).
 3. Starts the FastAPI backend (`fastapi dev`, hot-reload) on port 8000.
 
 Seed data lives in `supabase/seed.sql`; schema migrations in `supabase/migrations/`.
-Reset the local DB with `npx supabase db reset` from the repo root.
+Reset the local DB with `pnpm exec supabase db reset` from the repo root.
 
 ### Cloud mode — `./start-kummo.sh cloud`
 Uses the **hosted Supabase project** (`https://xusuvidhmuyzpfrtxutd.supabase.co`).
@@ -33,13 +33,13 @@ Reads credentials from `.env.cloud`. The start script:
 1. Patches `static/js/config.js` with the remote Supabase URL + anon key (used by `business.html`).
 2. Starts the FastAPI backend (`fastapi run`, no hot-reload) on port 8000.
 
-No Docker required. The `.env.cloud` file must contain `SUPABASE_URL` and `SUPABASE_ANON_KEY`.
+No Docker required. The `.env.cloud` file must contain `SUPABASE_URL` and `SUPABASE_API_KEY`.
 
 ### Manual start (either mode)
 ```bash
 # Export credentials first
 export SUPABASE_URL=...
-export SUPABASE_ANON_KEY=...
+export SUPABASE_API_KEY=...
 
 cd backend
 uv run fastapi dev src/kummo/main.py   # local
@@ -51,7 +51,7 @@ Then open `http://localhost:8000`. Do not open HTML files with `file://` — the
 
 Regression tests use **Vitest + jsdom** (Node dev tooling only — not needed to run the app).
 
-- `npm install` once, then `npm test` (single run) or `npm run test:watch`.
+- `pnpm install` once, then `pnpm test` (single run) or `pnpm run test:watch`.
 - Tests live in `test/app.test.js` and cover `app.js`'s pure logic (filtering, search-URL building, card HTML, shop enrichment, localStorage helpers) — including guards for the bugs already fixed (escaped `${}` template literals, undefined `STORAGE_*` constants).
 - `app.js` is a classic browser script, so it can't be `import`ed normally. Its bottom block attaches a `globalThis.KummoApp` API (incl. a test-only `__setData(shops, activities)` to inject fixture data). This is inert in the browser. When adding a function worth testing, add it to that export object.
 
@@ -77,9 +77,8 @@ Regression tests use **Vitest + jsdom** (Node dev tooling only — not needed to
 ## Supabase setup
 
 - Canonical project URL: `https://xusuvidhmuyzpfrtxutd.supabase.co` (20-char ref).
-- Credentials (`SUPABASE_URL`, `SUPABASE_ANON_KEY`) live only in `.env.*` files, read by the FastAPI backend at startup via pydantic-settings. They are never sent to the browser.
-- The backend uses the **anon key** (subject to RLS). Switch to the service role key once RLS policies are defined and auth is wired up.
-- Local DB: managed by `npx supabase` (Docker). Schema migrations in `supabase/migrations/`, seed data in `supabase/seed.sql`.
+- Credentials (`SUPABASE_URL`, `SUPABASE_API_KEY`) live only in `.env.*` files, read by the FastAPI backend at startup via pydantic-settings. They are never sent to the browser.
+- Local DB: managed by `pnpm exec supabase` (Docker). Schema migrations in `supabase/migrations/`, seed data in `supabase/seed.sql`.
 
 ## Project layout
 
@@ -109,7 +108,7 @@ Kummo/
 
 **Running the backend** (from `backend/`):
 ```bash
-cp .env.example .env   # fill in SUPABASE_URL + SUPABASE_ANON_KEY
+cp .env.example .env   # fill in SUPABASE_URL + SUPABASE_API_KEY
 uv sync --all-groups
 uv run fastapi dev src/kummo/main.py   # hot-reload dev server on :8000
 ```

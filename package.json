@@ -3,19 +3,21 @@
   "version": "0.1.0",
   "private": true,
   "description": "Kummo – Entdeckung & Buchung familienfreundlicher Aktivitäten (statische Website + Supabase)",
+  "packageManager": "pnpm@11.20.0",
+  "type": "module",
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
     "start": "bash start-kummo.sh local",
     "start:prod": "bash start-kummo.sh prod",
-    "serve": "npx --yes serve -l 5500 .",
-    "db:start": "npx supabase start",
-    "db:stop": "npx supabase stop",
-    "db:reset": "npx supabase db reset"
+    "serve": "pnpm dlx serve -l 5500 .",
+    "db:start": "pnpm exec supabase start",
+    "db:stop": "pnpm exec supabase stop",
+    "db:reset": "pnpm exec supabase db reset"
   },
   "devDependencies": {
-    "jsdom": "^25.0.1",
-    "supabase": "^2.106.0",
-    "vitest": "^2.1.8"
+    "jsdom": "^30.0.1",
+    "supabase": "^2.111.0",
+    "vitest": "^4.1.10"
   }
 }

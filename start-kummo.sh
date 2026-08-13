@@ -25,11 +25,11 @@ fi
 
 # Read credentials for the FastAPI backend
 SUPABASE_URL=$(grep -E '^SUPABASE_URL=' "$ENV_FILE" | cut -d= -f2-)
-SUPABASE_ANON_KEY=$(grep -E '^SUPABASE_ANON_KEY=' "$ENV_FILE" | cut -d= -f2-)
+SUPABASE_API_KEY=$(grep -E '^SUPABASE_API_KEY=' "$ENV_FILE" | cut -d= -f2-)
 
-if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
+if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_API_KEY" ]; then
   echo >&2
-  echo "SUPABASE_URL or SUPABASE_ANON_KEY is missing in '${ENV_FILE}'." >&2
+  echo "SUPABASE_URL or SUPABASE_API_KEY is missing in '${ENV_FILE}'." >&2
   echo >&2
   exit 1
 fi
@@ -40,9 +40,9 @@ echo "Environment: ${ENV}" >&2
 STARTED_SUPABASE=false
 if [ "$ENV" = "local" ]; then
   # Stop any existing (possibly unhealthy) Supabase containers first
-  npx supabase stop 2>/dev/null || true
+  pnpm exec supabase stop 2>/dev/null || true
   echo "Starting local Supabase instance ..." >&2
-  npx supabase start
+  pnpm exec supabase start
   STARTED_SUPABASE=true
 fi
 
@@ -57,7 +57,7 @@ if ! command -v uv >/dev/null 2>&1; then
   exit 1
 fi
 
-export SUPABASE_URL SUPABASE_ANON_KEY
+export SUPABASE_URL SUPABASE_API_KEY
 
 echo "Starting Kummo ..." >&2
 if [ "$ENV" = "local" ]; then
@@ -73,7 +73,7 @@ cleanup() {
   if [ "$STARTED_SUPABASE" = true ]; then
     echo >&2
     echo "Stopping Supabase ..." >&2
-    npx supabase stop 2>/dev/null || true
+    pnpm exec supabase stop 2>/dev/null || true
   fi
 }
 trap cleanup EXIT
