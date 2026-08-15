@@ -12,14 +12,21 @@ from alembic import context
 from sqlalchemy.ext.asyncio import create_async_engine
 
 from kummo.config import get_settings
-from kummo.orm import SCHEMA, Base
+from kummo.data_model import SCHEMA, Entity
+
+# Importing every feature's data model registers it on Entity.metadata. Without these
+# imports autogenerate would see an empty schema and propose dropping everything.
+from kummo.activities import data_model as _activities  # noqa: F401
+from kummo.bookings import data_model as _bookings  # noqa: F401
+from kummo.clients import data_model as _clients  # noqa: F401
+from kummo.vendors import data_model as _vendors  # noqa: F401
 
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-target_metadata = Base.metadata
+target_metadata = Entity.metadata
 
 
 def include_object(obj, name, type_, reflected, compare_to) -> bool:

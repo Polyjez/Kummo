@@ -8,13 +8,14 @@ from uuid import uuid4
 
 import pytest
 
-from kummo import orm
+from kummo.activities import data_model as activities
+from kummo.vendors import data_model as vendors
 
 pytestmark = pytest.mark.integration
 
 
-async def seed_vendor(session, **overrides) -> orm.Vendor:
-    vendor = orm.Vendor(
+async def seed_vendor(session, **overrides) -> vendors.Vendor:
+    vendor = vendors.Vendor(
         **{
             "name": f"Testanbieter {uuid4().hex[:6]}",
             "address": "Teststraße 1, 10999 Berlin",
@@ -28,8 +29,8 @@ async def seed_vendor(session, **overrides) -> orm.Vendor:
     return vendor
 
 
-async def seed_activity(session, vendor: orm.Vendor, **overrides) -> orm.Activity:
-    activity = orm.Activity(
+async def seed_activity(session, vendor: vendors.Vendor, **overrides) -> activities.Activity:
+    activity = activities.Activity(
         **{
             "vendor_id": vendor.id,
             "title": f"Testaktivität {uuid4().hex[:6]}",

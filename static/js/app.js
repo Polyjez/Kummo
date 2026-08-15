@@ -402,12 +402,26 @@ function toggleFavorite(id) {
 // =============================================
 // 11. Page-specific initializers
 // =============================================
+// Name and email come from the account, not from the preferences blob: the account
+// is authoritative and the user cannot edit them here. The rest stays local.
+async function applyAccountToProfileForm(form) {
+  if (!globalThis.KummoAuth) return;
+  const user = await globalThis.KummoAuth.currentUser();
+  if (!user) return;
+
+  form.name.value = user.display_name;
+  form.email.value = user.email;
+  form.name.readOnly = true;
+  form.email.readOnly = true;
+}
+
 function initProfilePage() {
   const form = document.getElementById('prefs-form');
   const prefs = getPrefs();
   if (form) {
     if (prefs.name) form.name.value = prefs.name;
     if (prefs.email) form.email.value = prefs.email;
+    applyAccountToProfileForm(form);
     if (prefs.age) form.age.value = prefs.age;
     if (prefs.maxBudget) form.maxBudget.value = prefs.maxBudget;
     if (prefs.location) form.location.value = prefs.location;
@@ -521,21 +535,36 @@ function initChatbot() {
 }
 
 // =============================================
-// 14. Logout handling (business.html only — clears session storage)
+// 14. Session handling.
+// The session itself lives in HttpOnly cookies, so this asks the backend who is
+// signed in rather than reading anything locally.
 // =============================================
-function logout() {
-  localStorage.removeItem('user_type');
-  localStorage.removeItem('user_id');
-  localStorage.removeItem('vendor_session');
+async function logout() {
+  try {
+    await globalThis.KummoAuth.logout();
+  } catch (err) {
+    console.log('Logout failed, clearing the page anyway:', err);
+  }
   window.location.href = 'index.html';
 }
 
-function updateLogoutButton() {
+async function updateLogoutButton() {
   const logoutBtn = document.getElementById('logout-btn');
+  const loginLink = document.getElementById('login-link');
+  if (!globalThis.KummoAuth || (!logoutBtn && !loginLink)) return;
+
+  const user = await globalThis.KummoAuth.currentUser();
+
+  if (loginLink) loginLink.style.display = user ? 'none' : 'inline';
   if (!logoutBtn) return;
-  const isLoggedIn = !!localStorage.getItem('user_type');
-  logoutBtn.style.display = isLoggedIn ? 'inline' : 'none';
-  if (isLoggedIn) logoutBtn.onclick = logout;
+
+  logoutBtn.style.display = user ? 'inline' : 'none';
+  if (user) {
+    logoutBtn.onclick = (e) => {
+      e.preventDefault();
+      logout();
+    };
+  }
 }
 
 // =============================================

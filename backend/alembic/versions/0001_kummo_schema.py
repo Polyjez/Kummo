@@ -33,8 +33,10 @@ _TEXT_ARRAY = postgresql.ARRAY(sa.Text())
 
 
 def upgrade() -> None:
-    op.execute(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}")
-
+    # The schema itself belongs to 20260804155602_kummo-backend.sql, which creates it
+    # with `authorization kummo_migrator`. Creating it here would need CREATE on the
+    # database, which kummo_migrator does not have -- and Postgres checks that
+    # privilege before the IF NOT EXISTS short-circuit, so it fails either way.
     op.create_table(
         "vendors",
         sa.Column("id", _UUID, primary_key=True, server_default=sa.text("gen_random_uuid()")),
@@ -62,19 +64,6 @@ def upgrade() -> None:
         sa.Column("age", sa.Integer(), nullable=True),
         sa.Column("interests", _TEXT_ARRAY, nullable=True),
         sa.Column("number_children", sa.Integer(), nullable=True),
-        schema=SCHEMA,
-    )
-
-    op.create_table(
-        "children",
-        sa.Column("id", _UUID, primary_key=True, server_default=sa.text("gen_random_uuid()")),
-        sa.Column("created_at", _TS, nullable=False, server_default=sa.text("now()")),
-        sa.Column("client_id", _UUID, sa.ForeignKey(f"{SCHEMA}.clients.id"), nullable=False),
-        sa.Column("first_name", sa.Text(), nullable=False),
-        sa.Column("last_name", sa.Text(), nullable=True),
-        sa.Column("age", sa.Integer(), nullable=False),
-        sa.Column("interests", _TEXT_ARRAY, nullable=False),
-        sa.Column("gender", sa.Text(), nullable=True),
         schema=SCHEMA,
     )
 
@@ -114,5 +103,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    for table in ("bookings", "activities", "children", "clients", "vendors"):
+    for table in ("bookings", "activities", "clients", "vendors"):
         op.drop_table(table, schema=SCHEMA)

@@ -20,27 +20,13 @@
         <a href="profile.html">Mein Profil</a>
         <a href="business.html" aria-current="page">Für Anbieter</a>
         <a href="admin.html">Admin</a>
+        <a href="login.html" id="login-link">Anmelden</a>
         <a href="#" id="logout-btn" style="display: none;">Abmelden</a>
       </nav>
     </div>
   </header>
 
   <main class="container" style="padding:2rem 0 4rem">
-    <!-- Vendor selector (temporary until authentication is implemented) -->
-    <div id="login-section" style="max-width: 500px; margin: 0 auto 2rem;">
-      <h2>Anbieter-Anmeldung</h2>
-      <form id="business-login-form">
-        <div class="form-row">
-          <label>Anbieter auswählen
-            <select id="vendor-select" required>
-              <option value="">— Anbieter wählen —</option>
-            </select>
-          </label>
-        </div>
-        <button type="submit" class="btn btn-primary">Dashboard öffnen</button>
-      </form>
-    </div>
-
     <!-- Dashboard content -->
     <div id="dashboard-content" style="display: none;">
       <h1>Anbieter-Dashboard</h1>
@@ -149,40 +135,27 @@
     <p class="footer-bottom container">© 2026 Kummo</p>
   </footer>
 
+  <script src="js/auth.js"></script>
   <script>
     // =============================================
-    // 1. Select vendor (replaces login until auth is implemented)
+    // 1. The signed-in vendor. There is no selector any more: the session says who
+    //    this is, and /api/auth/me is the only thing that can answer it.
     // =============================================
-    async function loadVendorSelector() {
-      const res = await fetch('/api/vendors');
-      if (!res.ok) return;
-      const vendors = await res.json();
-      const select = document.getElementById('vendor-select');
-      vendors.forEach((vendor) => {
-        const opt = document.createElement('option');
-        opt.value = vendor.id;
-        opt.textContent = vendor.name;
-        select.appendChild(opt);
-      });
-    }
+    let currentVendor = null;
 
-    async function openDashboard(vendorId) {
-      const res = await fetch('/api/vendors');
-      const vendors = await res.json();
-      const vendor = vendors.find((s) => s.id === vendorId);
-      if (!vendor) return;
+    function openDashboard(vendor) {
+      currentVendor = vendor;
 
-      localStorage.setItem('user_type', 'business');
-      localStorage.setItem('vendor_session', vendorId);
-
-      document.getElementById('login-section').style.display = 'none';
       document.getElementById('dashboard-content').style.display = 'block';
       document.getElementById('business-name').innerHTML =
-        `<strong>${vendor.name}</strong> — Aktivitäten & Buchungen verwalten`;
+        `<strong>${vendor.display_name}</strong> — Aktivitäten & Buchungen verwalten`;
       document.getElementById('logout-btn').style.display = 'inline';
-      document.getElementById('logout-btn').onclick = logout;
+      document.getElementById('logout-btn').onclick = (e) => {
+        e.preventDefault();
+        logout();
+      };
 
-      await loadDashboardData(vendorId);
+      return loadDashboardData(vendor.id);
     }
 
     // =============================================
@@ -213,14 +186,13 @@
     // 3. Add an activity
     // =============================================
     async function addActivity() {
-      const vendorId = localStorage.getItem('vendor_session');
-      if (!vendorId) {
-        alert('Bitte wählen Sie zuerst einen Anbieter aus.');
+      if (!currentVendor) {
+        alert('Bitte meldet euch zuerst an.');
         return;
       }
 
       const body = {
-        vendor_id: vendorId,
+        vendor_id: currentVendor.id,
         title: document.getElementById('activity-title').value,
         description: document.getElementById('activity-description').value,
         price: parseFloat(document.getElementById('activity-price').value),
@@ -245,35 +217,28 @@
       const created = await res.json();
       alert(`Aktivität "${created.title}" wurde gespeichert!`);
       document.querySelector('form[onsubmit*="addActivity"]').reset();
-      await loadDashboardData(vendorId);
+      await loadDashboardData(currentVendor.id);
     }
 
     // =============================================
     // 4. Logout
     // =============================================
-    function logout() {
-      localStorage.removeItem('user_type');
-      localStorage.removeItem('vendor_session');
-      document.getElementById('login-section').style.display = 'block';
-      document.getElementById('dashboard-content').style.display = 'none';
-      document.getElementById('logout-btn').style.display = 'none';
+    async function logout() {
+      try {
+        await globalThis.KummoAuth.logout();
+      } catch (err) {
+        console.log('Logout failed, leaving the page anyway:', err);
+      }
+      window.location.href = 'login.html';
     }
 
     // =============================================
     // 5. Initialization on page load
     // =============================================
     document.addEventListener('DOMContentLoaded', async () => {
-      await loadVendorSelector();
-
-      document.getElementById('business-login-form').addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const vendorId = document.getElementById('vendor-select').value;
-        if (vendorId) await openDashboard(vendorId);
-      });
-
-      // Restore session if still active
-      const vendorId = localStorage.getItem('vendor_session');
-      if (vendorId) await openDashboard(vendorId);
+      // Vendors only: requireUser sends anyone else to the login page.
+      const vendor = await globalThis.KummoAuth.requireUser('vendor');
+      if (vendor) await openDashboard(vendor);
     });
   </script>
 

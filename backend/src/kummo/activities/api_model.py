@@ -1,18 +1,6 @@
 from uuid import UUID
+
 from pydantic import BaseModel, ConfigDict
-
-
-class Vendor(BaseModel):
-    model_config = ConfigDict(from_attributes=True)
-
-    id: UUID
-    name: str
-    address: str
-    phone: str | None = None
-    email: str
-    website: str | None = None
-    activity_type: list[str]
-    picture: str | None = None
 
 
 class Activity(BaseModel):

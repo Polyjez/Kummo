@@ -1,9 +1,9 @@
 from uuid import uuid4
 
-from kummo import orm
+from kummo.activities import data_model as activities
 
 
-def make_activity(**overrides) -> orm.Activity:
+def make_activity(**overrides) -> activities.Activity:
     defaults = dict(
         id=uuid4(),
         vendor_id=uuid4(),
@@ -15,7 +15,7 @@ def make_activity(**overrides) -> orm.Activity:
         age_group="6-10",
         picture="https://example.test/activity.jpg",
     )
-    return orm.Activity(**{**defaults, **overrides})
+    return activities.Activity(**{**defaults, **overrides})
 
 
 async def test_list_activities_returns_serialized_rows(client, stub_session):
@@ -71,7 +71,7 @@ async def test_create_activity_persists_and_returns_201(client, stub_session):
     assert stub_session.commits == 1
     assert len(stub_session.added) == 1
     added = stub_session.added[0]
-    assert isinstance(added, orm.Activity)
+    assert isinstance(added, activities.Activity)
     assert added.vendor_id == vendor_id
     assert added.title == "Kamishibai-Erzählstunde"
     # Default applied by ActivityCreate rather than the database.

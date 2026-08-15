@@ -1,5 +1,11 @@
 -- DDL role: used only by Alembic, from CI/deploy
 create role kummo_migrator with login password '6TgkGDacgEFNwR@M';
+
+-- `postgres` is not a superuser on Supabase, so it can only create objects owned
+-- by kummo_migrator (and alter that role's default privileges below) if it is a
+-- member of the role.
+grant kummo_migrator to postgres;
+
 create schema kummo authorization kummo_migrator;
 
 -- Runtime role: DML only, no DDL, no BYPASSRLS

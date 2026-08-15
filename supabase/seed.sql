@@ -5,7 +5,6 @@
 -- Idempotent: the rows below carry fixed UUIDs, so clear them first rather than
 -- failing on a second run. DELETE, not TRUNCATE — kummo_app holds DML privileges only.
 DELETE FROM kummo.bookings;
-DELETE FROM kummo.children;
 DELETE FROM kummo.activities;
 DELETE FROM kummo.clients;
 DELETE FROM kummo.vendors;
@@ -126,48 +125,6 @@ INSERT INTO kummo.clients (id, first_name, last_name, email, age, interests, num
 ('b2000000-0000-0000-0000-000000000004',
  'Thomas', 'Weber', 'thomas.weber@example.de', 38,
  ARRAY['sport','wissenschaft','outdoor'], 2);
-
-
--- =============================================================================
--- Children (6 children linked to clients)
--- =============================================================================
-INSERT INTO kummo.children (id, client_id, first_name, last_name, age, interests, gender) VALUES
-
-('c3000000-0000-0000-0000-000000000001',
- 'b2000000-0000-0000-0000-000000000001',
- 'Lena', 'Schmidt', 5,
- ARRAY['malen','töpfern','tiere'],
- 'weiblich'),
-
-('c3000000-0000-0000-0000-000000000002',
- 'b2000000-0000-0000-0000-000000000001',
- 'Finn', 'Schmidt', 8,
- ARRAY['sport','schwimmen','abenteuer'],
- 'männlich'),
-
-('c3000000-0000-0000-0000-000000000003',
- 'b2000000-0000-0000-0000-000000000002',
- 'Elif', 'Yilmaz', 6,
- ARRAY['musik','tanzen','lesen'],
- 'weiblich'),
-
-('c3000000-0000-0000-0000-000000000004',
- 'b2000000-0000-0000-0000-000000000002',
- 'Emir', 'Yilmaz', 10,
- ARRAY['fussball','schwimmen','wissenschaft'],
- 'männlich'),
-
-('c3000000-0000-0000-0000-000000000005',
- 'b2000000-0000-0000-0000-000000000002',
- 'Aylin', 'Yilmaz', 3,
- ARRAY['malen','musik','tiere'],
- 'weiblich'),
-
-('c3000000-0000-0000-0000-000000000006',
- 'b2000000-0000-0000-0000-000000000004',
- 'Max', 'Weber', 7,
- ARRAY['forschen','sport','bauklötze'],
- 'männlich');
 
 
 -- =============================================================================

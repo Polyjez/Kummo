@@ -1,9 +1,9 @@
 from uuid import uuid4
 
-from kummo import orm
+from kummo.vendors import data_model as vendors
 
 
-def make_vendor(**overrides) -> orm.Vendor:
+def make_vendor(**overrides) -> vendors.Vendor:
     defaults = dict(
         id=uuid4(),
         name="Kreativwerkstatt Kreuzberg",
@@ -14,7 +14,7 @@ def make_vendor(**overrides) -> orm.Vendor:
         activity_type=["Basteln", "Malen"],
         picture="https://example.test/shop.jpg",
     )
-    return orm.Vendor(**{**defaults, **overrides})
+    return vendors.Vendor(**{**defaults, **overrides})
 
 
 async def test_list_vendors_returns_serialized_rows(client, stub_session):

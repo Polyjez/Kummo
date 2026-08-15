@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Bei Kummo anmelden oder ein neues Konto anlegen.">
+  <title>Kummo — Anmelden</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="stylesheet" href="css/kummo.css">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container header-inner">
+      <a class="logo" href="index.html" aria-label="Kummo Startseite">Kum<span>mo</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">☰ Menü</button>
+      <nav class="nav-main" id="main-nav" aria-label="Hauptnavigation">
+        <a href="search.html">Aktivitäten</a>
+        <a href="profile.html">Mein Profil</a>
+        <a href="business.html">Für Anbieter</a>
+        <a href="admin.html">Admin</a>
+        <a href="login.html" id="login-link">Anmelden</a>
+        <a href="#" id="logout-btn" style="display: none;">Abmelden</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="container" style="padding:2rem 0 4rem; max-width:560px">
+    <div id="auth-message" role="alert" style="display:none; margin-bottom:1rem; padding:.75rem 1rem; border-radius:.5rem; background:#fdecea; color:#8a1c12;"></div>
+
+    <!-- Anmelden -->
+    <section id="login-panel">
+      <h1>Anmelden</h1>
+
+      <a class="btn btn-outline" href="/api/auth/oauth/google" style="display:block; text-align:center; margin:1rem 0">
+        Mit Google anmelden
+      </a>
+
+      <p style="text-align:center; color:#777; margin:1rem 0">oder mit E-Mail</p>
+
+      <form id="login-form">
+        <div class="form-row">
+          <label>E-Mail
+            <input type="email" id="login-email" required autocomplete="email">
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Passwort
+            <input type="password" id="login-password" required autocomplete="current-password">
+          </label>
+        </div>
+        <button type="submit" class="btn btn-primary">Anmelden</button>
+      </form>
+
+      <p style="margin-top:1.5rem">
+        Noch kein Konto?
+        <a href="#" id="show-register">Jetzt registrieren</a>
+      </p>
+    </section>
+
+    <!-- Registrieren -->
+    <section id="register-panel" style="display:none">
+      <h1>Registrieren</h1>
+
+      <div class="form-row">
+        <label>Ich bin
+          <select id="register-role">
+            <option value="client">Familie / Privatperson</option>
+            <option value="vendor">Anbieter</option>
+          </select>
+        </label>
+      </div>
+
+      <form id="register-form">
+        <div class="form-row">
+          <label>E-Mail
+            <input type="email" id="register-email" required autocomplete="email">
+          </label>
+        </div>
+        <div class="form-row">
+          <label>Passwort (mindestens 8 Zeichen)
+            <input type="password" id="register-password" required minlength="8" autocomplete="new-password">
+          </label>
+        </div>
+
+        <!-- Nur für Familien -->
+        <div id="client-fields">
+          <div class="form-row">
+            <label>Vorname
+              <input type="text" id="register-first-name" autocomplete="given-name">
+            </label>
+          </div>
+          <div class="form-row">
+            <label>Nachname
+              <input type="text" id="register-last-name" autocomplete="family-name">
+            </label>
+          </div>
+        </div>
+
+        <!-- Nur für Anbieter -->
+        <div id="vendor-fields" style="display:none">
+          <div class="form-row">
+            <label>Name des Anbieters
+              <input type="text" id="register-name" autocomplete="organization">
+            </label>
+          </div>
+          <div class="form-row">
+            <label>Adresse
+              <input type="text" id="register-address" autocomplete="street-address">
+            </label>
+          </div>
+          <div class="form-row">
+            <label>Kategorien (mit Komma getrennt, z. B. kunst, workshop)
+              <input type="text" id="register-activity-type" placeholder="kunst, workshop">
+            </label>
+          </div>
+          <div class="form-row">
+            <label>Telefon (optional)
+              <input type="tel" id="register-phone" autocomplete="tel">
+            </label>
+          </div>
+          <div class="form-row">
+            <label>Website (optional)
+              <input type="url" id="register-website" autocomplete="url">
+            </label>
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Konto anlegen</button>
+      </form>
+
+      <p style="margin-top:1.5rem">
+        Schon registriert?
+        <a href="#" id="show-login">Zur Anmeldung</a>
+      </p>
+    </section>
+  </main>
+
+  <script src="js/auth.js"></script>
+  <script src="js/app.js"></script>
+  <script>
+    // This page is self-contained: app.js's router does not handle it.
+    (function () {
+      const auth = globalThis.KummoAuth;
+      const message = document.getElementById('auth-message');
+      const loginPanel = document.getElementById('login-panel');
+      const registerPanel = document.getElementById('register-panel');
+      const roleSelect = document.getElementById('register-role');
+
+      function showError(text) {
+        message.textContent = text;
+        message.style.display = 'block';
+      }
+
+      function clearError() {
+        message.style.display = 'none';
+      }
+
+      // A failed provider round trip comes back as ?error=oauth.
+      if (new URLSearchParams(window.location.search).get('error') === 'oauth') {
+        showError('Die Anmeldung über den Anbieter hat nicht geklappt. Bitte versucht es erneut.');
+      }
+
+      function showPanel(which) {
+        clearError();
+        loginPanel.style.display = which === 'login' ? 'block' : 'none';
+        registerPanel.style.display = which === 'register' ? 'block' : 'none';
+      }
+
+      document.getElementById('show-register').addEventListener('click', (e) => {
+        e.preventDefault();
+        showPanel('register');
+      });
+
+      document.getElementById('show-login').addEventListener('click', (e) => {
+        e.preventDefault();
+        showPanel('login');
+      });
+
+      roleSelect.addEventListener('change', () => {
+        const isVendor = roleSelect.value === 'vendor';
+        document.getElementById('client-fields').style.display = isVendor ? 'none' : 'block';
+        document.getElementById('vendor-fields').style.display = isVendor ? 'block' : 'none';
+      });
+
+      function landingFor(user) {
+        return user.role === 'vendor' ? 'business.html' : 'index.html';
+      }
+
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearError();
+        try {
+          const user = await auth.login({
+            email: document.getElementById('login-email').value,
+            password: document.getElementById('login-password').value,
+          });
+          window.location.href = landingFor(user);
+        } catch (err) {
+          showError(err.message);
+        }
+      });
+
+      document.getElementById('register-form').addEventListener('submit', async (e) => {
+        e.preventDefault();
+        clearError();
+        const email = document.getElementById('register-email').value;
+        const password = document.getElementById('register-password').value;
+
+        try {
+          let user;
+          if (roleSelect.value === 'vendor') {
+            const categories = document
+              .getElementById('register-activity-type')
+              .value.split(',')
+              .map((c) => c.trim())
+              .filter(Boolean);
+            if (categories.length === 0) {
+              showError('Bitte gebt mindestens eine Kategorie an.');
+              return;
+            }
+            user = await auth.registerVendor({
+              email,
+              password,
+              name: document.getElementById('register-name').value,
+              address: document.getElementById('register-address').value,
+              activityType: categories,
+              phone: document.getElementById('register-phone').value,
+              website: document.getElementById('register-website').value,
+            });
+          } else {
+            user = await auth.registerClient({
+              email,
+              password,
+              firstName: document.getElementById('register-first-name').value,
+              lastName: document.getElementById('register-last-name').value,
+            });
+          }
+          window.location.href = landingFor(user);
+        } catch (err) {
+          showError(err.message);
+        }
+      });
+
+      // Already signed in? Nothing to do here.
+      auth.currentUser().then((user) => {
+        if (user) window.location.href = landingFor(user);
+      });
+    })();
+  </script>
+</body>
+</html>

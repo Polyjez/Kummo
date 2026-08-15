@@ -57,6 +57,9 @@ Then open `http://localhost:8000`. Do not open HTML files with `file://` — the
 - `uv run pytest -m 'not integration'` — route tests with a stubbed session; no database needed.
 - `uv run pytest -m integration` — real queries against the local Supabase Postgres. Each test
   runs in a transaction that is rolled back, so seed data survives.
+- Auth routes are tested by stubbing the `service` module — it is the only boundary that
+  talks to the provider, so replacing it exercises cookies, profile linking and status
+  codes without a network call.
 
 **Frontend** regression tests use **Vitest + jsdom** (Node dev tooling only — not needed to run the app).
 
@@ -70,8 +73,9 @@ Then open `http://localhost:8000`. Do not open HTML files with `file://` — the
 - `index.html` — homepage (featured activities + search box)
 - `search.html` — search/filter results, reads filters from URL query params
 - `activity.html` — activity detail + booking modal (`?id=<activity-id>`)
-- `profile.html` — B2C user prefs, booking history, favorites
-- `business.html` — B2B dashboard; **self-contained** inline script, deliberately skipped by `app.js`. Uses a temporary vendor-selector (no auth yet); calls `GET /api/vendors`, `GET /api/activities?vendor_id=`, and `POST /api/activities`.
+- `login.html` — sign in / register (client or vendor) + "Mit Google anmelden"; **self-contained** inline script
+- `profile.html` — B2C client prefs, booking history, favorites. Name and email come from `GET /api/auth/me` and are read-only; the rest is localStorage.
+- `business.html` — B2B dashboard; **self-contained** inline script, deliberately skipped by `app.js`. Vendors only — `KummoAuth.requireUser('vendor')` redirects anyone else to `login.html`. Calls `GET /api/activities?vendor_id=` and `POST /api/activities`.
 - `admin.html` — admin stats (business/activity/booking counts, revenue)
 
 **`js/app.js`** is the single shared script for all B2C pages. Flow:
@@ -79,9 +83,26 @@ Then open `http://localhost:8000`. Do not open HTML files with `file://` — the
 2. `initPage()` is a path-based router (`window.location.pathname.includes(...)`) that dispatches to the right page initializer.
 3. Activities are joined to their vendor client-side via `enrichActivity()` (`activity.vendor_id === vendor.id`); the joined object exposes `vendorName` and `vendor`.
 
+**Authentication** (`backend/src/kummo/auth/`, layered outermost first):
+
+| Module | Responsibility |
+|---|---|
+| `routes.py` | `/api/auth/*`; cookies and status codes |
+| `dependencies.py` | `get_current_identity` / `get_current_client` / `get_current_vendor` |
+| `profiles.py` | links a verified identity to `kummo.clients` / `kummo.vendors` |
+| `cookies.py` | HttpOnly session transport |
+| `tokens.py` | access-token verification against the provider's JWKS |
+| `service.py` | **the only module aware the provider is Supabase** |
+
+- The session is two HttpOnly cookies (`kummo_session`, `kummo_refresh`). No token ever reaches page JS, and no response body names Supabase.
+- **Registration cannot be atomic** — the identity is created over HTTP while the profile row is a local transaction, and removing a stray identity would need the service key we do not hold. So every entry path calls `ensure_*_profile`, and an interrupted registration is completed on the next sign-in rather than compensated. Do not add a "delete the auth user" rollback.
+- **OAuth signup always creates a client.** A vendor is also the shop, so it needs an address and activity types that a Google profile cannot supply. Existing vendors can still sign in via Google — the callback finds the profile already linked.
+- OAuth uses PKCE with the verifier in a short-lived HttpOnly cookie, because the authorize request and the callback are separate HTTP requests.
+
 **Data sources:**
 - **FastAPI backend** (`/api/*`): all reads and writes go through the backend, which holds the database and Supabase credentials server-side. No Supabase SDK in the browser.
-- **`localStorage`** (client-only): bookings, favorites, and user preferences. Keys: `STORAGE_PREFS` / `STORAGE_BOOKINGS` / `STORAGE_FAVORITES`.
+- **`localStorage`** (client-only): bookings, favorites, and user preferences. Keys: `STORAGE_PREFS` / `STORAGE_BOOKINGS` / `STORAGE_FAVORITES`. **Not** the session — that lives in HttpOnly cookies.
+- **`js/auth.js`** (`globalThis.KummoAuth`): the only module talking to `/api/auth/*`. Every call sends `credentials: 'same-origin'`; there is no token to read or attach.
 
 ## Supabase setup
 
@@ -107,36 +128,49 @@ Kummo/
   backend/                     # FastAPI Python backend
     pyproject.toml             # uv project config; [project.scripts] holds the tasks
     .python-version            # pins Python 3.12
-    .env.example               # copy to .env, fill in credentials
+    .env.example               # key reference; the real files are ../.env.<env>
     alembic.ini
     alembic/                   # migrations for the kummo schema
-    src/kummo/
+    src/kummo/                 # organized by feature, not by technology
       main.py                  # FastAPI app, mounts /api and serves static files
       config.py                # pydantic-settings Settings class
       db.py                    # async engine + get_session dependency
-      orm.py                   # SQLAlchemy mappings for kummo.*
-      models.py                # Pydantic request/response models
+      data_model.py            # shared: Entity base, SCHEMA, column conventions
+      errors.py                # KummoError, the project-wide base exception
       tasks.py                 # kummo-db-seed / kummo-db-reset console scripts
-      api/
-        vendors.py             # GET /api/vendors
-        activities.py          # GET /api/activities, GET /api/activities/{id}, POST /api/activities
+      vendors/                 # data_model.py, api_model.py, routes.py
+      activities/              # data_model.py, api_model.py, routes.py
+      clients/                 # data_model.py (API surface arrives with enrichment)
+      bookings/                # data_model.py (frontend still uses localStorage)
+      auth/                    # routes, api_model, service, tokens, cookies,
+                               # profiles, dependencies, errors
     tests/                     # pytest backend tests
       integration/             # tests needing a live Postgres
 ```
 
 **Running the backend** (from `backend/`):
 ```bash
-cp .env.example .env   # fill in the four keys
 uv sync --all-groups
-uv run alembic upgrade head            # create/update the kummo schema
-uv run fastapi dev src/kummo/main.py   # hot-reload dev server on :8000
+uv run --env-file ../.env.local alembic upgrade head            # create/update the kummo schema
+uv run --env-file ../.env.local fastapi dev src/kummo/main.py   # hot-reload dev server on :8000
 ```
+
+**The env file lives at the repo root, not in `backend/`.** `Settings` resolves `env_file`
+relative to the current working directory, so a bare `uv run` from `backend/` finds nothing and
+fails on the four required keys. Pass `--env-file ../.env.<env>` — it is a `uv run` flag, so it
+must come *before* the command, or it is forwarded to alembic/fastapi instead. To avoid repeating
+it, `export UV_ENV_FILE=../.env.local` for the shell session; the path is still resolved against
+the CWD, so it only holds while you are in `backend/`.
+
+This stays compatible with `start-kummo.sh`, which exports the variables itself: uv only sets what
+is not already in the environment, and pydantic-settings prefers the environment over the file.
 
 ## Backend conventions
 
 - **Pydantic everywhere** — all API request bodies and response models must be typed Pydantic `BaseModel` subclasses. No raw `dict` in or out of route handlers.
 - **`logging` for output** — use the standard `logging` module (`logging.getLogger(__name__)`). Never use `print()` in backend code.
-- **Separate DTOs from domain types** — Pydantic models in `models.py` are the transport layer; SQLAlchemy mappings in `orm.py` are the persistence layer. Do not return ORM objects from routes.
+- **Organize by feature, not by technology** — each feature package owns its `data_model.py` (persisted entities), `api_model.py` (Pydantic request/response types) and `routes.py`. Anything genuinely shared moves up one level (`data_model.py`, `db.py`, `errors.py`). There is no top-level `models.py` or `api/` package.
+- **Keep the two models apart** — `api_model.py` is the transport layer, `data_model.py` the persistence layer. They may share a class name (`Vendor` in both); import the module, not the symbol, when both are in scope. Do not return persisted entities from routes.
 - **Schema changes go through Alembic** — `uv run alembic revision --autogenerate -m "..."` after editing `orm.py`, then review the generated file. Never hand-edit the database.
 - **`uv run` is the task runner** — no Makefile, no npm scripts, no separate task tool. Operational tasks are console scripts declared in `[project.scripts]`.
 - **Test coverage** — every new route and non-trivial function requires a corresponding `pytest` test under `backend/tests/`. Use `httpx.AsyncClient` with `transport=ASGITransport(app=app)` for route tests, overriding `db.get_session`. Prefer the `StubSession` in `tests/conftest.py` for logic that does not need SQL, and `tests/integration/` for anything where the SQL itself is the thing under test.

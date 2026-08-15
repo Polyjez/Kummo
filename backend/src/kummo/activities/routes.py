@@ -4,9 +4,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from .. import orm
 from ..db import get_session
-from ..models import Activity, ActivityCreate
+from . import data_model
+from .api_model import Activity, ActivityCreate
 
 router = APIRouter(tags=["activities"])
 
@@ -17,11 +17,11 @@ async def list_activities(
     age_group: str | None = Query(None),
     session: AsyncSession = Depends(get_session),
 ) -> list[Activity]:
-    query = select(orm.Activity).order_by(orm.Activity.title)
+    query = select(data_model.Activity).order_by(data_model.Activity.title)
     if vendor_id:
-        query = query.where(orm.Activity.vendor_id == vendor_id)
+        query = query.where(data_model.Activity.vendor_id == vendor_id)
     if age_group:
-        query = query.where(orm.Activity.age_group == age_group)
+        query = query.where(data_model.Activity.age_group == age_group)
     rows = await session.scalars(query)
     return [Activity.model_validate(row) for row in rows]
 
@@ -31,7 +31,7 @@ async def create_activity(
     body: ActivityCreate,
     session: AsyncSession = Depends(get_session),
 ) -> Activity:
-    activity = orm.Activity(**body.model_dump())
+    activity = data_model.Activity(**body.model_dump())
     session.add(activity)
     await session.commit()
     await session.refresh(activity)
@@ -43,7 +43,7 @@ async def get_activity(
     activity_id: UUID,
     session: AsyncSession = Depends(get_session),
 ) -> Activity:
-    activity = await session.get(orm.Activity, activity_id)
+    activity = await session.get(data_model.Activity, activity_id)
     if activity is None:
         raise HTTPException(status_code=404, detail="Activity not found")
     return Activity.model_validate(activity)

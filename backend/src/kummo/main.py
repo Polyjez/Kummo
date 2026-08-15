@@ -4,8 +4,10 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
-from .api import activities, vendors
+from .activities import routes as activities
+from .auth import routes as auth
 from .db import dispose_engine
+from .vendors import routes as vendors
 
 
 @asynccontextmanager
@@ -16,6 +18,7 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Kummo API", version="0.1.0", lifespan=lifespan)
 
+app.include_router(auth.router, prefix="/api")
 app.include_router(vendors.router, prefix="/api")
 app.include_router(activities.router, prefix="/api")
 

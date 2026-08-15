@@ -1,15 +1,14 @@
 import os
+from pathlib import Path
 
-# Settings are required fields; give them values before anything imports the app.
-os.environ.setdefault("SUPABASE_URL", "http://127.0.0.1:54321")
-os.environ.setdefault("SUPABASE_API_KEY", "test-anon-key")
-os.environ.setdefault(
-    "DATABASE_URL", "postgresql+asyncpg://kummo_app:test@127.0.0.1:54322/postgres"
-)
-os.environ.setdefault(
-    "MIGRATION_DATABASE_URL",
-    "postgresql+asyncpg://kummo_migrator:test@127.0.0.1:54322/postgres",
-)
+from dotenv import load_dotenv
+
+# Settings fields are required, so they must exist before anything imports the app.
+# The local environment file is the source of truth — integration tests need the real
+# DATABASE_URL, and the rest only need the fields to be present.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+load_dotenv(REPO_ROOT / ".env.local")
+
 
 from uuid import uuid4
 
@@ -30,11 +29,18 @@ class StubSession:
     def __init__(self, rows: list | None = None, get_result: object | None = None):
         self.rows = rows or []
         self.get_result = get_result
+        # Consumed in order, one per `scalar()` call; exhausted means "no row".
+        self.scalar_results: list = []
         self.added: list = []
         self.commits = 0
 
     async def scalars(self, query):
         return iter(self.rows)
+
+    async def scalar(self, query):
+        if not self.scalar_results:
+            return None
+        return self.scalar_results.pop(0)
 
     async def get(self, model, primary_key):
         return self.get_result
