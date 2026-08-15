@@ -10,7 +10,7 @@ Kummo is a B2B2C web app for discovering and booking family/senior-friendly acti
 
 - **English** for everything developer-facing: code (identifiers, function/variable names), comments, documentation, commit messages, `console.log` debug output, and test descriptions.
 - **German only for UI** — anything an end user sees: rendered page text, `alert()` messages, button labels, and the German `echo` lines in the launcher scripts.
-- **DB-mapped field names mirror the `kummo` schema columns**: `title`, `price`, `name`, `address`, `duration`, `picture`, `activity_type`, `age_group`, `participants_max`, `vendor_id`, etc. These are now English to match the actual columns — keep them spelled exactly as the column. There is **no `disponibilites`/availability column** in the schema; code that referenced it is guarded as optional, and the availability form field on `business.html` is not persisted (pending a product/schema decision).
+- **DB-mapped field names mirror the `kummo` schema columns**: `title`, `price`, `name`, `address`, `duration`, `picture`, `activity_type`, `age_group`, `participants_max`, `vendor_id`, etc. These are now English to match the actual columns — keep them spelled exactly as the column. There is **no `disponibilites`/availability column** in the schema; code that referenced it is guarded as optional, and the availability form field on `vendor.html` is not persisted (pending a product/schema decision).
 - Historical note: the code (and originally the DB columns) was French — `titre`→`title`, `prix`→`price`, `nom`→`name`, `adresse`→`address`, `duree`→`duration`, `photo`→`picture`, `type_activites`→`activity_type` (and earlier `magasins`→`shops`, `activites`→`activities`). All identifiers are now English. If you find leftover French, translate it.
 - Later rename: `shops`→`vendors` (a vendor is the business *and* the shop), `users`→`clients`, `shop_id`→`vendor_id`, `user_id`→`client_id`, `shopName`→`vendorName`. If you find leftover `shop`, it is stale.
 
@@ -74,9 +74,12 @@ Then open `http://localhost:8000`. Do not open HTML files with `file://` — the
 - `search.html` — search/filter results, reads filters from URL query params
 - `activity.html` — activity detail + booking modal (`?id=<activity-id>`)
 - `login.html` — sign in / register (client or vendor) + "Mit Google anmelden"; **self-contained** inline script
-- `profile.html` — B2C client prefs, booking history, favorites. Name and email come from `GET /api/auth/me` and are read-only; the rest is localStorage.
-- `business.html` — B2B dashboard; **self-contained** inline script, deliberately skipped by `app.js`. Vendors only — `KummoAuth.requireUser('vendor')` redirects anyone else to `login.html`. Calls `GET /api/activities?vendor_id=` and `POST /api/activities`.
+- `client.html` — B2C client prefs, booking history, favorites. Clients only — `KummoAuth.requireUser('client')`. Nothing renders before the guard resolves, so a stale profile is never shown. Name and email come from `GET /api/auth/me` and are read-only; the rest is localStorage.
+- `vendor.html` — B2B dashboard; **self-contained** inline script, deliberately skipped by `app.js`. Vendors only — `KummoAuth.requireUser('vendor')`. Calls `GET /api/activities?vendor_id=` and `POST /api/activities`.
+
 - `admin.html` — admin stats (business/activity/booking counts, revenue)
+
+**Role routing.** `client.html` and `vendor.html` are the two role homes (`KummoAuth.homeFor`) — the pages were named `profile.html` / `business.html` before; if you find those, they are stale. The nav carries **no per-role link**: the session badge itself is the anchor to the signed-in user's own page, so a role page is only ever reached by somebody who has that role. `requireUser(role)` sends an anonymous visitor to `login.html` and a signed-in user with the *other* role to their own home — not back to the login page. Sign-in, registration and the OAuth callback (`auth/routes.py`) all land on the same two pages.
 
 **`js/app.js`** is the single shared script for all B2C pages. Flow:
 1. `DOMContentLoaded` → `initApp()` → `loadData()` fetches `GET /api/vendors` and `GET /api/activities` in parallel.
@@ -101,7 +104,7 @@ Then open `http://localhost:8000`. Do not open HTML files with `file://` — the
 
 **Data sources:**
 - **FastAPI backend** (`/api/*`): all reads and writes go through the backend, which holds the database and Supabase credentials server-side. No Supabase SDK in the browser.
-- **`localStorage`** (client-only): bookings, favorites, and user preferences. Keys: `STORAGE_PREFS` / `STORAGE_BOOKINGS` / `STORAGE_FAVORITES`. **Not** the session — that lives in HttpOnly cookies.
+- **`localStorage`** (client-only): bookings, favorites, and user preferences. Keys: `STORAGE_PREFS` / `STORAGE_BOOKINGS` / `STORAGE_FAVORITES`. **Not** the session — that lives in HttpOnly cookies. This data belongs to one account but the browser keeps it across sign-ins, so `auth.js` records the owning account id in `kummo_account` and drops every `kummo_*` key when the session resolves to somebody else (or to nobody). Any new local key must therefore keep the `kummo_` prefix.
 - **`js/auth.js`** (`globalThis.KummoAuth`): the only module talking to `/api/auth/*`. Every call sends `credentials: 'same-origin'`; there is no token to read or attach.
 
 ## Supabase setup
@@ -118,8 +121,8 @@ Then open `http://localhost:8000`. Do not open HTML files with `file://` — the
 ```
 Kummo/
   static/
-    index.html, search.html, activity.html, profile.html
-    business.html, admin.html  # all pages
+    index.html, search.html, activity.html, login.html
+    client.html, vendor.html, admin.html  # all pages
     js/app.js                  # shared B2C logic (calls /api/*)
     css/                       # stylesheets
   supabase/                    # Supabase CLI config, auth/extension migrations, seed.sql

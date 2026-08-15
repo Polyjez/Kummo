@@ -370,7 +370,7 @@ async def test_oauth_callback_creates_a_client_profile(client, stub_session, pro
     )
 
     assert response.status_code == 303
-    assert response.headers["location"].endswith("/index.html")
+    assert response.headers["location"].endswith("/client.html")
     added = stub_session.added[0]
     assert isinstance(added, clients.Client)
     assert (added.first_name, added.last_name) == ("Anna", "Schmidt")
@@ -397,7 +397,7 @@ async def test_oauth_callback_sends_a_vendor_to_the_dashboard(
     )
 
     assert response.status_code == 303
-    assert response.headers["location"].endswith("/business.html")
+    assert response.headers["location"].endswith("/vendor.html")
     assert stub_session.added == []
 
 

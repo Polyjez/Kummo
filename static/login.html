@@ -18,10 +18,7 @@
       <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">☰ Menü</button>
       <nav class="nav-main" id="main-nav" aria-label="Hauptnavigation">
         <a href="search.html">Aktivitäten</a>
-        <a href="profile.html">Mein Profil</a>
-        <a href="business.html">Für Anbieter</a>
-        <a href="admin.html">Admin</a>
-        <span class="nav-session" id="session-status" hidden></span>
+        <span id="session-status" hidden></span>
         <a href="login.html" id="login-link">Anmelden</a>
         <a href="#" id="logout-btn" hidden>Abmelden</a>
       </nav>
@@ -186,10 +183,6 @@
         document.getElementById('vendor-fields').style.display = isVendor ? 'block' : 'none';
       });
 
-      function landingFor(user) {
-        return user.role === 'vendor' ? 'business.html' : 'index.html';
-      }
-
       document.getElementById('login-form').addEventListener('submit', async (e) => {
         e.preventDefault();
         clearError();
@@ -198,7 +191,7 @@
             email: document.getElementById('login-email').value,
             password: document.getElementById('login-password').value,
           });
-          window.location.href = landingFor(user);
+          window.location.href = auth.homeFor(user);
         } catch (err) {
           showError(err.message);
         }
@@ -239,15 +232,15 @@
               lastName: document.getElementById('register-last-name').value,
             });
           }
-          window.location.href = landingFor(user);
+          window.location.href = auth.homeFor(user);
         } catch (err) {
           showError(err.message);
         }
       });
 
       // Already signed in? Nothing to do here.
-      auth.currentUser().then((user) => {
-        if (user) window.location.href = landingFor(user);
+      auth.session().then((user) => {
+        if (user) window.location.href = auth.homeFor(user);
       });
     })();
   </script>

@@ -29,7 +29,16 @@ const user = { id: 'c1', email: 'anna@example.de', role: 'client', display_name:
 
 beforeEach(() => {
   vi.restoreAllMocks();
+  auth.resetSession();
+  localStorage.clear();
 });
+
+// jsdom refuses to navigate, so the guard's redirects are observed on a stub.
+function stubLocation() {
+  const location = { href: '' };
+  Object.defineProperty(window, 'location', { value: location, writable: true, configurable: true });
+  return location;
+}
 
 describe('request plumbing', () => {
   it('sends cookies on every call (the session lives in HttpOnly cookies)', async () => {
@@ -159,7 +168,7 @@ describe('session indicator in the header', () => {
   function renderNav() {
     document.body.innerHTML = `
       <nav class="nav-main">
-        <span class="nav-session" id="session-status" hidden></span>
+        <span id="session-status" hidden></span>
         <a href="login.html" id="login-link">Anmelden</a>
         <a href="#" id="logout-btn" hidden>Abmelden</a>
       </nav>`;
@@ -189,6 +198,19 @@ describe('session indicator in the header', () => {
 
     expect(status.querySelector('.nav-session-role').textContent).toBe('Anbieter');
     expect(status.firstElementChild.title).toBe('anna@example.de');
+  });
+
+  it('links the badge to the page of the signed-in role', () => {
+    const { status } = renderNav();
+
+    auth.renderSessionStatus(user);
+    expect(status.firstElementChild.getAttribute('href')).toBe('client.html');
+
+    auth.renderSessionStatus({ ...user, role: 'vendor' });
+    expect(status.firstElementChild.getAttribute('href')).toBe('vendor.html');
+
+    auth.renderSessionStatus({ ...user, role: 'admin' });
+    expect(status.firstElementChild.getAttribute('href')).toBe('admin.html');
   });
 
   it('derives the avatar initials from the display name', () => {
@@ -232,5 +254,96 @@ describe('session indicator in the header', () => {
 
     expect(status.hidden).toBe(true);
     expect(loginLink.hidden).toBe(false);
+  });
+});
+
+describe('the shared session', () => {
+  it('asks /api/auth/me once however many callers want it', async () => {
+    const calls = stubFetch([{ status: 200, body: user }]);
+
+    const [a, b] = await Promise.all([auth.session(), auth.session()]);
+
+    expect(calls).toHaveLength(1);
+    expect(a).toEqual(user);
+    expect(b).toEqual(user);
+  });
+});
+
+describe('account-scoped local data', () => {
+  it('drops data left behind by another account', async () => {
+    stubFetch([{ status: 200, body: user }]);
+    localStorage.setItem('kummo_account', 'someone-else');
+    localStorage.setItem('kummo_prefs', '{"age":"0-5"}');
+    localStorage.setItem('kummo_favorites', '["a1"]');
+
+    await auth.session();
+
+    expect(localStorage.getItem('kummo_prefs')).toBeNull();
+    expect(localStorage.getItem('kummo_favorites')).toBeNull();
+    expect(localStorage.getItem('kummo_account')).toBe('c1');
+  });
+
+  it('keeps the data of the account that is signing in again', async () => {
+    stubFetch([{ status: 200, body: user }]);
+    localStorage.setItem('kummo_account', 'c1');
+    localStorage.setItem('kummo_prefs', '{"age":"0-5"}');
+
+    await auth.session();
+
+    expect(localStorage.getItem('kummo_prefs')).toBe('{"age":"0-5"}');
+  });
+
+  it('drops the data when nobody is signed in', async () => {
+    stubFetch([{ status: 401, body: {} }]);
+    localStorage.setItem('kummo_account', 'c1');
+    localStorage.setItem('kummo_prefs', '{"age":"0-5"}');
+
+    await auth.session();
+
+    expect(localStorage.getItem('kummo_prefs')).toBeNull();
+    expect(localStorage.getItem('kummo_account')).toBeNull();
+  });
+
+  it('leaves keys that are not ours alone', async () => {
+    stubFetch([{ status: 200, body: user }]);
+    localStorage.setItem('other_app', 'keep me');
+
+    await auth.session();
+
+    expect(localStorage.getItem('other_app')).toBe('keep me');
+  });
+});
+
+describe('page guard', () => {
+  it('sends an anonymous visitor to the login page', async () => {
+    const location = stubLocation();
+    stubFetch([{ status: 401, body: {} }]);
+
+    await expect(auth.requireUser('client')).resolves.toBeNull();
+    expect(location.href).toBe('login.html');
+  });
+
+  it('sends a vendor asking for the profile page to its dashboard', async () => {
+    const location = stubLocation();
+    stubFetch([{ status: 200, body: { ...user, role: 'vendor' } }]);
+
+    await expect(auth.requireUser('client')).resolves.toBeNull();
+    expect(location.href).toBe('vendor.html');
+  });
+
+  it('sends a client asking for the dashboard to its profile', async () => {
+    const location = stubLocation();
+    stubFetch([{ status: 200, body: user }]);
+
+    await expect(auth.requireUser('vendor')).resolves.toBeNull();
+    expect(location.href).toBe('client.html');
+  });
+
+  it('lets the matching role through without navigating', async () => {
+    const location = stubLocation();
+    stubFetch([{ status: 200, body: user }]);
+
+    await expect(auth.requireUser('client')).resolves.toEqual(user);
+    expect(location.href).toBe('');
   });
 });

@@ -229,7 +229,9 @@ async def oauth_callback(
             db, _identity_of(auth_session), first_name, last_name
         )
 
-    destination = "/business.html" if profile.role == "vendor" else "/index.html"
+    # Land on the page that belongs to the role, the same split the frontend
+    # guard enforces: a vendor has no profile page, a client no dashboard.
+    destination = "/vendor.html" if profile.role == "vendor" else "/client.html"
     response = RedirectResponse(f"{base}{destination}", status_code=303)
     cookies.clear_oauth_state(response)
     cookies.set_session_cookies(response, auth_session)

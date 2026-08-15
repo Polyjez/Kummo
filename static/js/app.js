@@ -54,12 +54,12 @@ function initPage() {
     showActivityDetail();
     return;
   }
-  if (path.includes('profile.html')) {
-    initProfilePage();
+  if (path.includes('client.html')) {
+    initClientPage();
     return;
   }
-  if (path.includes('business.html')) {
-    // Do nothing here: business.html runs its own code
+  if (path.includes('vendor.html')) {
+    // Do nothing here: vendor.html runs its own code
     return;
   }
   if (path.includes('admin.html')) {
@@ -404,24 +404,24 @@ function toggleFavorite(id) {
 // =============================================
 // Name and email come from the account, not from the preferences blob: the account
 // is authoritative and the user cannot edit them here. The rest stays local.
-async function applyAccountToProfileForm(form) {
-  if (!globalThis.KummoAuth) return;
-  const user = await globalThis.KummoAuth.currentUser();
-  if (!user) return;
-
+function applyAccountToClientForm(form, user) {
   form.name.value = user.display_name;
   form.email.value = user.email;
   form.name.readOnly = true;
   form.email.readOnly = true;
 }
 
-function initProfilePage() {
+// This page is for clients only — a vendor is sent to its dashboard by the guard,
+// which also drops any locally cached data belonging to a previous account. Nothing
+// is rendered before it resolves, so no stale profile is ever shown.
+async function initClientPage() {
+  const user = await globalThis.KummoAuth?.requireUser('client');
+  if (!user) return;
+
   const form = document.getElementById('prefs-form');
   const prefs = getPrefs();
   if (form) {
-    if (prefs.name) form.name.value = prefs.name;
-    if (prefs.email) form.email.value = prefs.email;
-    applyAccountToProfileForm(form);
+    applyAccountToClientForm(form, user);
     if (prefs.age) form.age.value = prefs.age;
     if (prefs.maxBudget) form.maxBudget.value = prefs.maxBudget;
     if (prefs.location) form.location.value = prefs.location;

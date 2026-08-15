@@ -94,11 +94,82 @@ async function currentUser() {
   }
 }
 
-// Redirects to login.html when there is no session; resolves to the user otherwise.
+// =============================================
+// The page-wide session.
+//
+// A page asks for the session from several places (the header, the page guard,
+// the profile form), so the request is made once and shared. Resolving it is also
+// the moment the locally cached data is checked against the account it belongs to.
+// =============================================
+let sessionPromise = null;
+
+function session() {
+  if (!sessionPromise) {
+    sessionPromise = currentUser().then((user) => {
+      syncLocalAccount(user);
+      return user;
+    });
+  }
+  return sessionPromise;
+}
+
+// Only used by the tests and by logout: the session cannot change within a page
+// otherwise, since every auth transition navigates away.
+function resetSession() {
+  sessionPromise = null;
+}
+
+// =============================================
+// Account-scoped local data.
+//
+// Preferences, bookings and favorites live in localStorage under `kummo_*` keys.
+// They belong to one account, but localStorage belongs to the browser, so signing
+// in as somebody else would otherwise show the previous user's data. The account
+// the cached data was written for is recorded here, and anything left over from a
+// different one is dropped.
+// =============================================
+const ACCOUNT_KEY = 'kummo_account';
+
+function clearLocalData() {
+  for (const key of Object.keys(localStorage)) {
+    if (key.startsWith('kummo_')) localStorage.removeItem(key);
+  }
+}
+
+function syncLocalAccount(user) {
+  const owner = localStorage.getItem(ACCOUNT_KEY);
+  const current = user ? user.id : null;
+  if (owner === current) return;
+
+  clearLocalData();
+  if (current) localStorage.setItem(ACCOUNT_KEY, current);
+}
+
+// =============================================
+// Page access.
+// =============================================
+
+// The page that belongs to a role: where the session badge leads, and where a
+// signed-in user is sent when the page they asked for is not for them. A vendor has
+// no client page and a client has no dashboard. `admin` is listed for the day the
+// backend grows the role — today `/api/auth/me` only ever returns client or vendor.
+const ROLE_HOME = { client: 'client.html', vendor: 'vendor.html', admin: 'admin.html' };
+
+function homeFor(user) {
+  return ROLE_HOME[user.role] ?? 'index.html';
+}
+
+// Guards a page: anonymous visitors go to login.html, and a signed-in user whose
+// role does not match is sent to their own home rather than asked to sign in
+// again. Resolves to the user when the page may render, null when it is leaving.
 async function requireUser(role) {
-  const user = await currentUser();
-  if (!user || (role && user.role !== role)) {
+  const user = await session();
+  if (!user) {
     window.location.href = 'login.html';
+    return null;
+  }
+  if (role && user.role !== role) {
+    window.location.href = homeFor(user);
     return null;
   }
   return user;
@@ -108,7 +179,7 @@ async function requireUser(role) {
 // Session indicator in the header.
 //
 // Every page ships the same nav, so the "who is signed in" rendering lives here
-// rather than in app.js: business.html and login.html run their own inline
+// rather than in app.js: vendor.html and login.html run their own inline
 // scripts and would otherwise each need a copy.
 // =============================================
 
@@ -122,9 +193,12 @@ function initials(displayName) {
   return letters.toUpperCase();
 }
 
+// The badge is the way to the user's own page: the nav no longer carries a link
+// per role, so whoever is signed in clicks their name to get there.
 function sessionBadge(user) {
-  const badge = document.createElement('span');
+  const badge = document.createElement('a');
   badge.className = 'nav-session';
+  badge.href = homeFor(user);
   badge.setAttribute('aria-label', `Angemeldet als ${user.display_name} (${ROLE_LABELS[user.role] ?? user.role})`);
   badge.title = user.email;
 
@@ -168,6 +242,8 @@ async function logoutAndLeave() {
   } catch (err) {
     console.log('Logout failed, leaving the page anyway:', err);
   }
+  resetSession();
+  clearLocalData();
   window.location.href = 'index.html';
 }
 
@@ -184,7 +260,7 @@ async function initSessionHeader() {
 
   let user = null;
   try {
-    user = await currentUser();
+    user = await session();
   } catch (err) {
     console.log('Could not read the session:', err);
   }
@@ -208,6 +284,9 @@ if (typeof globalThis !== 'undefined') {
     login,
     logout,
     currentUser,
+    session,
+    resetSession,
+    homeFor,
     requireUser,
     renderSessionStatus,
     initSessionHeader,
