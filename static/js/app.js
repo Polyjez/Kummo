@@ -535,46 +535,14 @@ function initChatbot() {
 }
 
 // =============================================
-// 14. Session handling.
-// The session itself lives in HttpOnly cookies, so this asks the backend who is
-// signed in rather than reading anything locally.
-// =============================================
-async function logout() {
-  try {
-    await globalThis.KummoAuth.logout();
-  } catch (err) {
-    console.log('Logout failed, clearing the page anyway:', err);
-  }
-  window.location.href = 'index.html';
-}
-
-async function updateLogoutButton() {
-  const logoutBtn = document.getElementById('logout-btn');
-  const loginLink = document.getElementById('login-link');
-  if (!globalThis.KummoAuth || (!logoutBtn && !loginLink)) return;
-
-  const user = await globalThis.KummoAuth.currentUser();
-
-  if (loginLink) loginLink.style.display = user ? 'none' : 'inline';
-  if (!logoutBtn) return;
-
-  logoutBtn.style.display = user ? 'inline' : 'none';
-  if (user) {
-    logoutBtn.onclick = (e) => {
-      e.preventDefault();
-      logout();
-    };
-  }
-}
-
-// =============================================
-// Final initialization
+// Final initialization.
+// The header's session indicator (name, role, Anmelden/Abmelden) is owned by
+// auth.js, which initializes itself on every page — nothing to do here.
 // =============================================
 document.addEventListener('DOMContentLoaded', () => {
   initNav();
   initChatbot();
   initApp();
-  updateLogoutButton();
 });
 
 // =============================================

@@ -124,6 +124,55 @@ p { margin: 0 0 1em; }
   text-decoration: underline;
 }
 
+/* Session indicator: who is signed in, next to the Abmelden link. */
+.nav-session {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.65rem 0.25rem 0.25rem;
+  background: var(--white);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  font-size: 1rem;
+  font-weight: 600;
+  max-width: 16rem;
+}
+
+.nav-session[hidden] {
+  display: none;
+}
+
+.nav-session-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 2rem;
+  border-radius: 50%;
+  background: var(--ultrasonic);
+  color: var(--white);
+  font-size: 0.85rem;
+  letter-spacing: 0.02em;
+}
+
+.nav-session-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.nav-session-role {
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  background: var(--powder-petal);
+  color: var(--terracotta);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
 .nav-toggle {
   display: none;
   background: var(--white);
@@ -782,6 +831,11 @@ th {
   }
 
   .nav-main.open { display: flex; }
+
+  .nav-session {
+    max-width: 100%;
+    margin: 0.25rem 0;
+  }
 
   .page-layout {
     grid-template-columns: 1fr;

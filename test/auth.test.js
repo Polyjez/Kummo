@@ -153,3 +153,84 @@ describe('error messages', () => {
     ).rejects.toThrow(/falsch/);
   });
 });
+
+describe('session indicator in the header', () => {
+  // The nav every page ships, reduced to the parts the indicator touches.
+  function renderNav() {
+    document.body.innerHTML = `
+      <nav class="nav-main">
+        <span class="nav-session" id="session-status" hidden></span>
+        <a href="login.html" id="login-link">Anmelden</a>
+        <a href="#" id="logout-btn" hidden>Abmelden</a>
+      </nav>`;
+    return {
+      status: document.getElementById('session-status'),
+      loginLink: document.getElementById('login-link'),
+      logoutBtn: document.getElementById('logout-btn'),
+    };
+  }
+
+  it('shows the name, the role and the Abmelden link when signed in', () => {
+    const { status, loginLink, logoutBtn } = renderNav();
+
+    auth.renderSessionStatus(user);
+
+    expect(status.hidden).toBe(false);
+    expect(status.querySelector('.nav-session-name').textContent).toBe('Anna Schmidt');
+    expect(status.querySelector('.nav-session-role').textContent).toBe('Kunde');
+    expect(loginLink.hidden).toBe(true);
+    expect(logoutBtn.hidden).toBe(false);
+  });
+
+  it('labels a vendor as Anbieter and exposes the email as the tooltip', () => {
+    const { status } = renderNav();
+
+    auth.renderSessionStatus({ ...user, role: 'vendor', display_name: 'Kita Sonnenschein' });
+
+    expect(status.querySelector('.nav-session-role').textContent).toBe('Anbieter');
+    expect(status.firstElementChild.title).toBe('anna@example.de');
+  });
+
+  it('derives the avatar initials from the display name', () => {
+    const { status } = renderNav();
+
+    auth.renderSessionStatus(user);
+    expect(status.querySelector('.nav-session-avatar').textContent).toBe('AS');
+
+    auth.renderSessionStatus({ ...user, display_name: 'Kummo' });
+    expect(status.querySelector('.nav-session-avatar').textContent).toBe('K');
+  });
+
+  it('falls back to the Anmelden link when nobody is signed in', () => {
+    const { status, loginLink, logoutBtn } = renderNav();
+    auth.renderSessionStatus(user);
+
+    auth.renderSessionStatus(null);
+
+    expect(status.hidden).toBe(true);
+    expect(status.children.length).toBe(0);
+    expect(loginLink.hidden).toBe(false);
+    expect(logoutBtn.hidden).toBe(true);
+  });
+
+  it('fills the header from /api/auth/me on load', async () => {
+    const { status, loginLink } = renderNav();
+    const calls = stubFetch([{ status: 200, body: user }]);
+
+    await auth.initSessionHeader();
+
+    expect(calls[0].url).toBe('/api/auth/me');
+    expect(status.querySelector('.nav-session-name').textContent).toBe('Anna Schmidt');
+    expect(loginLink.hidden).toBe(true);
+  });
+
+  it('renders as signed out when the session cannot be read', async () => {
+    const { status, loginLink } = renderNav();
+    stubFetch([{ status: 502, body: { detail: 'boom' } }]);
+
+    await auth.initSessionHeader();
+
+    expect(status.hidden).toBe(true);
+    expect(loginLink.hidden).toBe(false);
+  });
+});

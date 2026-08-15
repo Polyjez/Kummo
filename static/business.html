@@ -20,8 +20,9 @@
         <a href="profile.html">Mein Profil</a>
         <a href="business.html" aria-current="page">Für Anbieter</a>
         <a href="admin.html">Admin</a>
+        <span class="nav-session" id="session-status" hidden></span>
         <a href="login.html" id="login-link">Anmelden</a>
-        <a href="#" id="logout-btn" style="display: none;">Abmelden</a>
+        <a href="#" id="logout-btn" hidden>Abmelden</a>
       </nav>
     </div>
   </header>
@@ -149,12 +150,6 @@
       document.getElementById('dashboard-content').style.display = 'block';
       document.getElementById('business-name').innerHTML =
         `<strong>${vendor.display_name}</strong> — Aktivitäten & Buchungen verwalten`;
-      document.getElementById('logout-btn').style.display = 'inline';
-      document.getElementById('logout-btn').onclick = (e) => {
-        e.preventDefault();
-        logout();
-      };
-
       return loadDashboardData(vendor.id);
     }
 
@@ -221,19 +216,7 @@
     }
 
     // =============================================
-    // 4. Logout
-    // =============================================
-    async function logout() {
-      try {
-        await globalThis.KummoAuth.logout();
-      } catch (err) {
-        console.log('Logout failed, leaving the page anyway:', err);
-      }
-      window.location.href = 'login.html';
-    }
-
-    // =============================================
-    // 5. Initialization on page load
+    // 4. Initialization on page load
     // =============================================
     document.addEventListener('DOMContentLoaded', async () => {
       // Vendors only: requireUser sends anyone else to the login page.
