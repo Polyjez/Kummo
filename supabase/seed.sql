@@ -1,10 +1,19 @@
 -- Kummo development seed data
--- Only runs on local Supabase instances (supabase start / supabase db reset)
+-- Applied by `uv run kummo-db-seed` (or `uv run kummo-db-reset`), after Alembic
+-- has created the kummo schema. Not part of `supabase db reset` any more.
+
+-- Idempotent: the rows below carry fixed UUIDs, so clear them first rather than
+-- failing on a second run. DELETE, not TRUNCATE — kummo_app holds DML privileges only.
+DELETE FROM kummo.bookings;
+DELETE FROM kummo.children;
+DELETE FROM kummo.activities;
+DELETE FROM kummo.clients;
+DELETE FROM kummo.vendors;
 
 -- =============================================================================
--- Shops (10 Berlin-based providers)
+-- Vendors (10 Berlin-based providers)
 -- =============================================================================
-INSERT INTO public.shops (id, name, address, phone, email, website, activity_type, picture) VALUES
+INSERT INTO kummo.vendors (id, name, address, phone, email, website, activity_type, picture) VALUES
 
 ('a1000000-0000-0000-0000-000000000001',
  'Kreativwerkstatt Kreuzberg',
@@ -98,9 +107,9 @@ INSERT INTO public.shops (id, name, address, phone, email, website, activity_typ
 
 
 -- =============================================================================
--- Users (4 test users — no auth, public table only)
+-- Clients (4 test profiles — auth_user_id left null, they have no Supabase Auth identity)
 -- =============================================================================
-INSERT INTO public.users (id, first_name, last_name, email, age, interests, number_children) VALUES
+INSERT INTO kummo.clients (id, first_name, last_name, email, age, interests, number_children) VALUES
 
 ('b2000000-0000-0000-0000-000000000001',
  'Anna', 'Schmidt', 'anna.schmidt@example.de', 34,
@@ -120,9 +129,9 @@ INSERT INTO public.users (id, first_name, last_name, email, age, interests, numb
 
 
 -- =============================================================================
--- Children (6 children linked to users)
+-- Children (6 children linked to clients)
 -- =============================================================================
-INSERT INTO public.children (id, user_id, first_name, last_name, age, interests, gender) VALUES
+INSERT INTO kummo.children (id, client_id, first_name, last_name, age, interests, gender) VALUES
 
 ('c3000000-0000-0000-0000-000000000001',
  'b2000000-0000-0000-0000-000000000001',
@@ -162,9 +171,9 @@ INSERT INTO public.children (id, user_id, first_name, last_name, age, interests,
 
 
 -- =============================================================================
--- Activities (20+ across all shops)
+-- Activities (20+ across all vendors)
 -- =============================================================================
-INSERT INTO public.activities (id, shop_id, title, description, price, participants_max, duration, age_group, picture) VALUES
+INSERT INTO kummo.activities (id, vendor_id, title, description, price, participants_max, duration, age_group, picture) VALUES
 
 -- Kreativwerkstatt Kreuzberg
 ('d4000000-0000-0000-0000-000000000001',
@@ -334,7 +343,7 @@ INSERT INTO public.activities (id, shop_id, title, description, price, participa
 -- =============================================================================
 -- Bookings (8 sample bookings in various statuses)
 -- =============================================================================
-INSERT INTO public.bookings (id, user_id, shop_id, slot, quantity, total_price, status) VALUES
+INSERT INTO kummo.bookings (id, client_id, vendor_id, slot, quantity, total_price, status) VALUES
 
 ('e5000000-0000-0000-0000-000000000001',
  'b2000000-0000-0000-0000-000000000001',

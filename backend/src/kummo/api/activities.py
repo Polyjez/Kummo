@@ -1,49 +1,49 @@
 from uuid import UUID
+
 from fastapi import APIRouter, Depends, HTTPException, Query
-from ..config import Settings, get_settings
-from ..db import get_supabase
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from .. import orm
+from ..db import get_session
 from ..models import Activity, ActivityCreate
 
 router = APIRouter(tags=["activities"])
 
 
 @router.get("/activities", response_model=list[Activity])
-def list_activities(
-    shop_id: UUID | None = Query(None),
+async def list_activities(
+    vendor_id: UUID | None = Query(None),
     age_group: str | None = Query(None),
-    settings: Settings = Depends(get_settings),
+    session: AsyncSession = Depends(get_session),
 ) -> list[Activity]:
-    client = get_supabase(settings)
-    q = client.from_("activities").select("*")
-    if shop_id:
-        q = q.eq("shop_id", str(shop_id))
+    query = select(orm.Activity).order_by(orm.Activity.title)
+    if vendor_id:
+        query = query.where(orm.Activity.vendor_id == vendor_id)
     if age_group:
-        q = q.eq("age_group", age_group)
-    result = q.execute()
-    return result.data
+        query = query.where(orm.Activity.age_group == age_group)
+    rows = await session.scalars(query)
+    return [Activity.model_validate(row) for row in rows]
 
 
 @router.post("/activities", response_model=Activity, status_code=201)
-def create_activity(
+async def create_activity(
     body: ActivityCreate,
-    settings: Settings = Depends(get_settings),
+    session: AsyncSession = Depends(get_session),
 ) -> Activity:
-    client = get_supabase(settings)
-    result = (
-        client.from_("activities").insert(body.model_dump(mode="json")).execute()
-    )
-    return result.data[0]
+    activity = orm.Activity(**body.model_dump())
+    session.add(activity)
+    await session.commit()
+    await session.refresh(activity)
+    return Activity.model_validate(activity)
 
 
 @router.get("/activities/{activity_id}", response_model=Activity)
-def get_activity(
+async def get_activity(
     activity_id: UUID,
-    settings: Settings = Depends(get_settings),
+    session: AsyncSession = Depends(get_session),
 ) -> Activity:
-    client = get_supabase(settings)
-    result = (
-        client.from_("activities").select("*").eq("id", str(activity_id)).maybe_single().execute()
-    )
-    if result.data is None:
+    activity = await session.get(orm.Activity, activity_id)
+    if activity is None:
         raise HTTPException(status_code=404, detail="Activity not found")
-    return result.data
+    return Activity.model_validate(activity)

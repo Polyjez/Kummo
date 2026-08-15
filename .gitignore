@@ -8,6 +8,8 @@ supabase/.temp
 site/
 
 .env*
+# ...but the template carries no secrets and belongs in the repo.
+!.env.example
 
 # Python
 __pycache__/

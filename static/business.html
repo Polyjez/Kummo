@@ -26,13 +26,13 @@
   </header>
 
   <main class="container" style="padding:2rem 0 4rem">
-    <!-- Shop selector (temporary until authentication is implemented) -->
+    <!-- Vendor selector (temporary until authentication is implemented) -->
     <div id="login-section" style="max-width: 500px; margin: 0 auto 2rem;">
       <h2>Anbieter-Anmeldung</h2>
       <form id="business-login-form">
         <div class="form-row">
           <label>Anbieter auswählen
-            <select id="shop-select" required>
+            <select id="vendor-select" required>
               <option value="">— Anbieter wählen —</option>
             </select>
           </label>
@@ -151,45 +151,45 @@
 
   <script>
     // =============================================
-    // 1. Select shop (replaces login until auth is implemented)
+    // 1. Select vendor (replaces login until auth is implemented)
     // =============================================
-    async function loadShopSelector() {
-      const res = await fetch('/api/shops');
+    async function loadVendorSelector() {
+      const res = await fetch('/api/vendors');
       if (!res.ok) return;
-      const shops = await res.json();
-      const select = document.getElementById('shop-select');
-      shops.forEach((shop) => {
+      const vendors = await res.json();
+      const select = document.getElementById('vendor-select');
+      vendors.forEach((vendor) => {
         const opt = document.createElement('option');
-        opt.value = shop.id;
-        opt.textContent = shop.name;
+        opt.value = vendor.id;
+        opt.textContent = vendor.name;
         select.appendChild(opt);
       });
     }
 
-    async function openDashboard(shopId) {
-      const res = await fetch('/api/shops');
-      const shops = await res.json();
-      const shop = shops.find((s) => s.id === shopId);
-      if (!shop) return;
+    async function openDashboard(vendorId) {
+      const res = await fetch('/api/vendors');
+      const vendors = await res.json();
+      const vendor = vendors.find((s) => s.id === vendorId);
+      if (!vendor) return;
 
       localStorage.setItem('user_type', 'business');
-      localStorage.setItem('shop_session', shopId);
+      localStorage.setItem('vendor_session', vendorId);
 
       document.getElementById('login-section').style.display = 'none';
       document.getElementById('dashboard-content').style.display = 'block';
       document.getElementById('business-name').innerHTML =
-        `<strong>${shop.name}</strong> — Aktivitäten & Buchungen verwalten`;
+        `<strong>${vendor.name}</strong> — Aktivitäten & Buchungen verwalten`;
       document.getElementById('logout-btn').style.display = 'inline';
       document.getElementById('logout-btn').onclick = logout;
 
-      await loadDashboardData(shopId);
+      await loadDashboardData(vendorId);
     }
 
     // =============================================
     // 2. Load dashboard data
     // =============================================
-    async function loadDashboardData(shopId) {
-      const res = await fetch(`/api/activities?shop_id=${shopId}`);
+    async function loadDashboardData(vendorId) {
+      const res = await fetch(`/api/activities?vendor_id=${vendorId}`);
       if (!res.ok) {
         console.error('Failed to load activities:', res.status);
         return;
@@ -213,14 +213,14 @@
     // 3. Add an activity
     // =============================================
     async function addActivity() {
-      const shopId = localStorage.getItem('shop_session');
-      if (!shopId) {
+      const vendorId = localStorage.getItem('vendor_session');
+      if (!vendorId) {
         alert('Bitte wählen Sie zuerst einen Anbieter aus.');
         return;
       }
 
       const body = {
-        shop_id: shopId,
+        vendor_id: vendorId,
         title: document.getElementById('activity-title').value,
         description: document.getElementById('activity-description').value,
         price: parseFloat(document.getElementById('activity-price').value),
@@ -245,7 +245,7 @@
       const created = await res.json();
       alert(`Aktivität "${created.title}" wurde gespeichert!`);
       document.querySelector('form[onsubmit*="addActivity"]').reset();
-      await loadDashboardData(shopId);
+      await loadDashboardData(vendorId);
     }
 
     // =============================================
@@ -253,7 +253,7 @@
     // =============================================
     function logout() {
       localStorage.removeItem('user_type');
-      localStorage.removeItem('shop_session');
+      localStorage.removeItem('vendor_session');
       document.getElementById('login-section').style.display = 'block';
       document.getElementById('dashboard-content').style.display = 'none';
       document.getElementById('logout-btn').style.display = 'none';
@@ -263,17 +263,17 @@
     // 5. Initialization on page load
     // =============================================
     document.addEventListener('DOMContentLoaded', async () => {
-      await loadShopSelector();
+      await loadVendorSelector();
 
       document.getElementById('business-login-form').addEventListener('submit', async (e) => {
         e.preventDefault();
-        const shopId = document.getElementById('shop-select').value;
-        if (shopId) await openDashboard(shopId);
+        const vendorId = document.getElementById('vendor-select').value;
+        if (vendorId) await openDashboard(vendorId);
       });
 
       // Restore session if still active
-      const shopId = localStorage.getItem('shop_session');
-      if (shopId) await openDashboard(shopId);
+      const vendorId = localStorage.getItem('vendor_session');
+      if (vendorId) await openDashboard(vendorId);
     });
   </script>
 

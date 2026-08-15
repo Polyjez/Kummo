@@ -26,13 +26,18 @@ fi
 # Read credentials for the FastAPI backend
 SUPABASE_URL=$(grep -E '^SUPABASE_URL=' "$ENV_FILE" | cut -d= -f2-)
 SUPABASE_API_KEY=$(grep -E '^SUPABASE_API_KEY=' "$ENV_FILE" | cut -d= -f2-)
+DATABASE_URL=$(grep -E '^DATABASE_URL=' "$ENV_FILE" | cut -d= -f2-)
+MIGRATION_DATABASE_URL=$(grep -E '^MIGRATION_DATABASE_URL=' "$ENV_FILE" | cut -d= -f2-)
 
-if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_API_KEY" ]; then
-  echo >&2
-  echo "SUPABASE_URL or SUPABASE_API_KEY is missing in '${ENV_FILE}'." >&2
-  echo >&2
-  exit 1
-fi
+for var in SUPABASE_URL SUPABASE_API_KEY DATABASE_URL MIGRATION_DATABASE_URL; do
+  if [ -z "${!var}" ]; then
+    echo >&2
+    echo "${var} is missing in '${ENV_FILE}'." >&2
+    echo "See backend/.env.example for the expected keys." >&2
+    echo >&2
+    exit 1
+  fi
+done
 
 echo "Environment: ${ENV}" >&2
 
@@ -57,7 +62,14 @@ if ! command -v uv >/dev/null 2>&1; then
   exit 1
 fi
 
-export SUPABASE_URL SUPABASE_API_KEY
+export SUPABASE_URL SUPABASE_API_KEY DATABASE_URL MIGRATION_DATABASE_URL
+
+# Application tables live in the `kummo` schema, which Alembic owns and
+# `supabase db reset` does not create.
+if [ "$ENV" = "local" ]; then
+  echo "Applying database migrations ..." >&2
+  uv --directory backend run alembic upgrade head
+fi
 
 echo "Starting Kummo ..." >&2
 if [ "$ENV" = "local" ]; then

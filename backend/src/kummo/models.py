@@ -1,8 +1,10 @@
 from uuid import UUID
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 
 
-class Shop(BaseModel):
+class Vendor(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
     name: str
     address: str
@@ -14,8 +16,10 @@ class Shop(BaseModel):
 
 
 class Activity(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: UUID
-    shop_id: UUID
+    vendor_id: UUID
     title: str
     description: str | None = None
     price: float | None = None
@@ -26,7 +30,7 @@ class Activity(BaseModel):
 
 
 class ActivityCreate(BaseModel):
-    shop_id: UUID
+    vendor_id: UUID
     title: str
     description: str | None = None
     price: float | None = None

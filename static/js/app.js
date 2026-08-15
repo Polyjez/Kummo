@@ -1,9 +1,9 @@
 // Kummo — drives every page. Data is loaded from the FastAPI backend (/api/*).
 // Field names mirror the Supabase columns (title, price, name, address,
-// activity_type, age_group, participants_max, duration, picture, shop_id, ...).
+// activity_type, age_group, participants_max, duration, picture, vendor_id, ...).
 // UI strings stay in German. Note: there is no `disponibilites`/availability
 // column in the schema, so that data is guarded as optional.
-let shops = [];
+let vendors = [];
 let activities = [];
 
 // localStorage keys (preferences, bookings, favorites)
@@ -20,13 +20,13 @@ function initApp() {
 // =============================================
 async function loadData() {
   try {
-    const [shopsRes, activitiesRes] = await Promise.all([
-      fetch('/api/shops'),
+    const [vendorsRes, activitiesRes] = await Promise.all([
+      fetch('/api/vendors'),
       fetch('/api/activities'),
     ]);
-    if (!shopsRes.ok) throw new Error(`shops: ${shopsRes.status}`);
+    if (!vendorsRes.ok) throw new Error(`vendors: ${vendorsRes.status}`);
     if (!activitiesRes.ok) throw new Error(`activities: ${activitiesRes.status}`);
-    shops = await shopsRes.json();
+    vendors = await vendorsRes.json();
     activities = await activitiesRes.json();
     initPage();
   } catch (error) {
@@ -77,16 +77,16 @@ function initPage() {
 }
 
 // =============================================
-// 3. Enrich an activity with its shop data
+// 3. Enrich an activity with its vendor data
 // =============================================
 function enrichActivity(activity) {
-  const shop = shops.find((s) => s.id === activity.shop_id);
+  const vendor = vendors.find((s) => s.id === activity.vendor_id);
   return {
     ...activity,
-    address: shop ? shop.address : 'Adresse unbekannt',
-    shopName: shop ? shop.name : 'Anbieter unbekannt',
-    picture: activity.picture || (shop ? shop.picture : 'https://via.placeholder.com/400x250'),
-    shop,
+    address: vendor ? vendor.address : 'Adresse unbekannt',
+    vendorName: vendor ? vendor.name : 'Anbieter unbekannt',
+    picture: activity.picture || (vendor ? vendor.picture : 'https://via.placeholder.com/400x250'),
+    vendor,
   };
 }
 
@@ -100,7 +100,7 @@ function activityCardHtml(activity) {
       <img src="${a.picture}" alt="${a.title}" loading="lazy">
       <div class="activity-card-body">
         <div class="activity-meta">
-          <span class="tag">${a.shopName}</span>
+          <span class="tag">${a.vendorName}</span>
           <span class="tag tag-age">${a.age_group}</span>
         </div>
         <h3>${a.title}</h3>
@@ -138,7 +138,7 @@ function filterActivities(filters) {
     const q = (filters.q || '').toLowerCase().trim();
 
     if (q) {
-      const haystack = `${activity.title} ${activity.description} ${enriched.shopName}`.toLowerCase();
+      const haystack = `${activity.title} ${activity.description} ${enriched.vendorName}`.toLowerCase();
       if (!haystack.includes(q)) return false;
     }
 
@@ -153,7 +153,7 @@ function filterActivities(filters) {
     if (filters.maxPrice && activity.price > Number(filters.maxPrice)) return false;
 
     if (filters.category && filters.category !== 'all') {
-      const offering = (enriched.shop?.activity_type || []).join(' ').toLowerCase();
+      const offering = (enriched.vendor?.activity_type || []).join(' ').toLowerCase();
       const text = `${activity.title} ${activity.description}`.toLowerCase();
       const cat = filters.category;
       if (cat === 'kunst' && !/mal|töpf|illustr|van gogh|impression|druck|kunst|diy/.test(text) && !offering.includes('kunst')) return false;
@@ -260,7 +260,7 @@ function showActivityDetail() {
       <img class="gallery-main" src="${a.picture}" alt="${a.title}">
       <div class="detail-info">
         <div class="activity-meta">
-          <span class="tag">${a.shopName}</span>
+          <span class="tag">${a.vendorName}</span>
           <span class="tag tag-age">${a.age_group}</span>
         </div>
         <h1>${a.title}</h1>
@@ -290,7 +290,7 @@ function showActivityDetail() {
     </section>`;
 
   const similar = activities
-    .filter((x) => x.id !== activity.id && x.shop_id === activity.shop_id)
+    .filter((x) => x.id !== activity.id && x.vendor_id === activity.vendor_id)
     .slice(0, 3);
   renderActivityGrid('similar-activities', similar.length ? similar : activities.filter((x) => x.id !== activity.id).slice(0, 3));
 
@@ -448,7 +448,7 @@ function getRecommendations(prefs) {
 // =============================================
 function initAdminDashboard() {
   document.getElementById('admin-business-count')?.replaceChildren(
-    document.createTextNode(String(shops.length))
+    document.createTextNode(String(vendors.length))
   );
   document.getElementById('admin-activity-count')?.replaceChildren(
     document.createTextNode(String(activities.length))
@@ -462,9 +462,9 @@ function initAdminDashboard() {
 
   const bizTable = document.getElementById('admin-businesses');
   if (bizTable) {
-    bizTable.innerHTML = shops
+    bizTable.innerHTML = vendors
       .map((b) => {
-        const count = activities.filter((a) => a.shop_id === b.id).length;
+        const count = activities.filter((a) => a.vendor_id === b.id).length;
         return `<tr><td>${b.name}</td><td>${b.email}</td><td>${count}</td><td>—</td></tr>`;
       })
       .join('');
@@ -477,7 +477,7 @@ function initAdminDashboard() {
       ? bookings
           .map((b) => {
             const act = activities.find((a) => a.id === b.activityId);
-            return `<tr><td>—</td><td>${act ? enrichActivity(act).shopName : '—'}</td><td>${b.activityName}</td><td>${b.name}</td><td>${b.slot}</td><td>${b.status}</td><td>${b.total} €</td></tr>`;
+            return `<tr><td>—</td><td>${act ? enrichActivity(act).vendorName : '—'}</td><td>${b.activityName}</td><td>${b.name}</td><td>${b.slot}</td><td>${b.status}</td><td>${b.total} €</td></tr>`;
           })
           .join('')
       : '<tr><td colspan="7">Noch keine Buchungen</td></tr>';
@@ -526,7 +526,7 @@ function initChatbot() {
 function logout() {
   localStorage.removeItem('user_type');
   localStorage.removeItem('user_id');
-  localStorage.removeItem('shop_session');
+  localStorage.removeItem('vendor_session');
   window.location.href = 'index.html';
 }
 
@@ -569,8 +569,8 @@ if (typeof globalThis !== 'undefined') {
     STORAGE_BOOKINGS,
     STORAGE_FAVORITES,
     // Test-only: replaces the data loaded from Supabase.
-    __setData: (shopList, activityList) => {
-      shops = shopList;
+    __setData: (vendorList, activityList) => {
+      vendors = vendorList;
       activities = activityList;
     },
   };

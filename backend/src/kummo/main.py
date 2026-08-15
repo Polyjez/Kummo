@@ -1,11 +1,22 @@
+from contextlib import asynccontextmanager
 from pathlib import Path
+
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
-from .api import shops, activities
 
-app = FastAPI(title="Kummo API", version="0.1.0")
+from .api import activities, vendors
+from .db import dispose_engine
 
-app.include_router(shops.router, prefix="/api")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    yield
+    await dispose_engine()
+
+
+app = FastAPI(title="Kummo API", version="0.1.0", lifespan=lifespan)
+
+app.include_router(vendors.router, prefix="/api")
 app.include_router(activities.router, prefix="/api")
 
 # Serve static/ last so API routes take precedence
