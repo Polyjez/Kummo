@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     # Session cookies are HttpOnly always; Secure only where there is TLS to require.
     cookie_secure: bool = False
 
+    # Root log level. DEBUG is loud — SQLAlchemy and httpx both talk at that level.
+    log_level: str = "INFO"
+
     @model_validator(mode="after")
     def _require_secure_cookies_over_tls(self) -> "Settings":
         """Refuse to serve session cookies unprotected over a TLS deployment.

@@ -79,8 +79,11 @@ async def _insert_profile(
         return existing
 
     await session.refresh(row)
-    logger.info("Created profile for auth user %s", auth_user_id)
-    return as_profile(row)
+    profile = as_profile(row)
+    logger.info(
+        "Created %s profile %s for auth user %s", profile.role, profile.id, auth_user_id
+    )
+    return profile
 
 
 async def find_profile(session: AsyncSession, auth_user_id: UUID) -> Profile | None:

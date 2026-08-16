@@ -1,3 +1,4 @@
+import logging
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -9,6 +10,8 @@ from ..auth.profiles import Profile
 from ..db import get_session
 from . import data_model
 from .api_model import Activity, ActivityCreate
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["activities"])
 
@@ -43,6 +46,7 @@ async def create_activity(
     session.add(activity)
     await session.commit()
     await session.refresh(activity)
+    logger.info("Vendor %s created activity %s", vendor.id, activity.id)
     return Activity.model_validate(activity)
 
 

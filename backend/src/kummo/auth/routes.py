@@ -103,6 +103,9 @@ async def register_client(
     profile = await ensure_client_profile(
         db, _identity_of(auth_session), body.first_name, body.last_name
     )
+    # Identifiers, never the address: these lines are an audit trail, not a mailing
+    # list, and the profile id is what every other line here can be joined on.
+    logger.info("Registered client %s", profile.id)
     cookies.set_session_cookies(response, auth_session)
     return _as_current_user(profile)
 
@@ -127,6 +130,7 @@ async def register_vendor(
         phone=body.phone,
         website=body.website,
     )
+    logger.info("Registered vendor %s", profile.id)
     cookies.set_session_cookies(response, auth_session)
     return _as_current_user(profile)
 
@@ -146,6 +150,14 @@ async def login(
     if profile is None:
         # Registration was interrupted after the identity was created. Complete it now
         # rather than leaving the account permanently unusable.
+        #
+        # A warning rather than an aside: nothing recorded which role was being
+        # registered, so this always produces a *client*. If the interrupted
+        # registration was a vendor's, this is the line that says where that went.
+        logger.warning(
+            "Auth user %s signed in with no profile; completing it as a client",
+            auth_session.auth_user_id,
+        )
         first_name, last_name = split_full_name(
             auth_session.full_name, auth_session.email
         )
@@ -153,6 +165,7 @@ async def login(
             db, _identity_of(auth_session), first_name, last_name
         )
 
+    logger.info("Signed in %s %s", profile.role, profile.id)
     cookies.set_session_cookies(response, auth_session)
     return _as_current_user(profile)
 
@@ -222,6 +235,8 @@ async def start_oauth(
     still sign in this way — the callback finds the profile that is already linked.
     """
     if provider not in SUPPORTED_PROVIDERS:
+        # Summarised, not interpolated: the path segment is caller-controlled.
+        logger.info("OAuth requested for an unknown provider (%s)", _log_safe(provider))
         raise HTTPException(status_code=404, detail="Unknown provider")
 
     redirect = service.build_oauth_redirect(
@@ -288,6 +303,7 @@ async def oauth_callback(
 
     # Land on the page that belongs to the role, the same split the frontend
     # guard enforces: a vendor has no profile page, a client no dashboard.
+    logger.info("Signed in %s %s via OAuth", profile.role, profile.id)
     destination = "/vendor.html" if profile.role == "vendor" else "/client.html"
     response = RedirectResponse(f"{base}{destination}", status_code=303)
     cookies.clear_oauth_state(response)
