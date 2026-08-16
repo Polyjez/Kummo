@@ -9,6 +9,9 @@ from uuid import uuid4
 import pytest
 
 from kummo.activities import data_model as activities
+from kummo.auth.dependencies import get_current_vendor
+from kummo.auth.profiles import Profile
+from kummo.main import app
 from kummo.vendors import data_model as vendors
 
 pytestmark = pytest.mark.integration
@@ -81,13 +84,37 @@ async def test_activities_filter_by_age_group(db_session, db_client):
     assert [a["id"] for a in body] == [str(wanted.id)]
 
 
-async def test_create_activity_round_trips(db_session, db_client):
+@pytest.fixture
+def signed_in_vendor_profile():
+    """Puts a vendor behind `get_current_vendor` for the write route.
+
+    The guard itself is unit-tested; what needs real Postgres here is that the
+    session's vendor id survives the round trip into the row and back out.
+    """
+
+    def _sign_in(vendor: vendors.Vendor) -> Profile:
+        profile = Profile(
+            role="vendor",
+            id=vendor.id,
+            email=vendor.email,
+            display_name=vendor.name,
+        )
+        app.dependency_overrides[get_current_vendor] = lambda: profile
+        return profile
+
+    yield _sign_in
+    app.dependency_overrides.pop(get_current_vendor, None)
+
+
+async def test_create_activity_round_trips(
+    db_session, db_client, signed_in_vendor_profile
+):
     vendor = await seed_vendor(db_session)
+    signed_in_vendor_profile(vendor)
 
     created = await db_client.post(
         "/api/activities",
         json={
-            "vendor_id": str(vendor.id),
             "title": "Neue Aktivität",
             "price": 19.5,
             "participants_max": 6,
@@ -101,7 +128,26 @@ async def test_create_activity_round_trips(db_session, db_client):
     fetched = await db_client.get(f"/api/activities/{activity_id}")
     assert fetched.status_code == 200
     assert fetched.json()["title"] == "Neue Aktivität"
+    # The owner came from the session, and it is what actually got stored.
     assert fetched.json()["vendor_id"] == str(vendor.id)
+
+
+async def test_creating_an_activity_anonymously_writes_nothing(db_session, db_client):
+    vendor = await seed_vendor(db_session)
+    before = (
+        await db_client.get("/api/activities", params={"vendor_id": str(vendor.id)})
+    ).json()
+
+    created = await db_client.post(
+        "/api/activities",
+        json={"title": "Nicht erlaubt", "participants_max": 6, "duration": "90min"},
+    )
+
+    assert created.status_code == 401
+    after = (
+        await db_client.get("/api/activities", params={"vendor_id": str(vendor.id)})
+    ).json()
+    assert after == before
 
 
 async def test_get_unknown_activity_returns_404(db_client):
