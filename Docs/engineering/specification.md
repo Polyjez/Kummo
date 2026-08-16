@@ -29,7 +29,8 @@ Derived from [../product/requirements.md](../product/requirements.md) §7 (techn
 - **Single authority for authorization:** all data access goes through the backend (NFR-41). DB-level security (RLS) is defense-in-depth, not the source of truth.
 - **Frontend:** rebuilt for accessibility, DE/EN multilingualism, and mobile-first; talks to the backend API only, never directly to the DB. The existing prototype is a **UX reference**, not a code base.
 - **Geodata:** PostgreSQL geospatial capabilities (PostGIS) for distances/zones; an external geocoding service converts addresses → coordinates. Zone modality pending (DEC-05, see [../open_questions/business/requirements.md](../open_questions/business/requirements.md)).
-- **Persistence toolkit:** SQLAlchemy 2.0 (async) + Alembic for business-logic tables; Supabase client for Storage/Auth. See [../decisions/0003-persistence-sqlalchemy.md](../decisions/0003-persistence-sqlalchemy.md).
+- **Persistence toolkit:** SQLAlchemy 2.0 (async) for business-logic tables; Supabase client for Storage/Auth. See [../decisions/0003-persistence-sqlalchemy.md](../decisions/0003-persistence-sqlalchemy.md).
+- **Schema migrations:** Supabase CLI SQL migrations, the single DDL chain. See [../decisions/0004-supabase-cli-single-migration-chain.md](../decisions/0004-supabase-cli-single-migration-chain.md).
 - **Payments:** Stripe Connect (Express), separate charges and transfers, custom booking module. See [../decisions/0001-payment-stripe-connect.md](../decisions/0001-payment-stripe-connect.md) and [../decisions/0002-booking-build-vs-buy.md](../decisions/0002-booking-build-vs-buy.md).
 
 ## 3. Data model
@@ -67,4 +68,4 @@ Consolidated from the per-document open-question files:
 - **Payment:** no longer blocking — all payment open questions (payout timing, cancellation policy, dispute handling, commission rate, vendor onboarding, checkout transparency) are resolved, see [ADR 0001](../decisions/0001-payment-stripe-connect.md).
 - **Data model:** seats/availability, vendor↔shop cardinality, notification polymorphism — [../open_questions/technical/data-model.md](../open_questions/technical/data-model.md).
 - **Product decisions:** messaging vs. contact exchange (DEC-02), dynamic-content i18n (DEC-04), service-area modality (DEC-05), engine weights (DEC-07) — [../open_questions/business/requirements.md](../open_questions/business/requirements.md).
-- **Persistence:** team SQLAlchemy/Alembic conventions — [../open_questions/technical/persistence.md](../open_questions/technical/persistence.md).
+- **Persistence:** team SQLAlchemy and migration-review conventions — [../open_questions/technical/persistence.md](../open_questions/technical/persistence.md).

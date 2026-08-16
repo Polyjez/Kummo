@@ -1,5 +1,4 @@
--- Application tables now live in the `kummo` schema and are owned by Alembic
--- (see backend/alembic/versions/0001_kummo_schema.py). The backend reaches them
+-- Application tables now live in the `kummo` schema. The backend reaches them
 -- through asyncpg as `kummo_app`, not through PostgREST, so the anon grants that
 -- exposed them to the Data API are obsolete along with the tables themselves.
 --

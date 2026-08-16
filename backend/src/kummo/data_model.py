@@ -32,8 +32,8 @@ def created_at() -> Mapped[datetime]:
 def auth_user_id() -> Mapped[UUID | None]:
     """Links a profile to a Supabase Auth user.
 
-    Unique, but no foreign key: `auth.users` belongs to GoTrue's own role and
-    `kummo_migrator` has no privileges in that schema.
+    Unique, but no foreign key: `auth.users` belongs to GoTrue's own role, which the
+    migrations have no privileges on.
     """
     return mapped_column(PgUUID(as_uuid=True), unique=True, nullable=True)
 

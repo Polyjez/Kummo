@@ -1,7 +1,7 @@
 """Fixtures for tests that talk to the real local Postgres.
 
-Requires a running local Supabase (`pnpm exec supabase start`) with the schema applied
-(`uv run alembic upgrade head`). Each test runs inside a transaction that is rolled
+Requires a running local Supabase with the migrations and seed applied
+(`pnpm exec supabase db reset`). Each test runs inside a transaction that is rolled
 back, so the seed data is left untouched — including the routes' own `commit()`, which
 lands on a savepoint thanks to `join_transaction_mode`.
 """

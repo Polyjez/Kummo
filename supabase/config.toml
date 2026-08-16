@@ -64,10 +64,9 @@ enabled = true
 schema_paths = []
 
 [db.seed]
-# Disabled on purpose: seed.sql targets the `kummo` schema, which Alembic creates
-# *after* this reset runs. Seed with `uv run kummo-db-seed` (or `uv run kummo-db-reset`,
-# which chains reset -> alembic upgrade -> seed in the right order).
-enabled = false
+# The CLI migrations create the `kummo` schema and its tables, so seed.sql can run as
+# part of `supabase db reset` -- which is therefore the whole local rebuild.
+enabled = true
 # Specifies an ordered list of seed files to load during db reset.
 # Supports glob patterns relative to supabase directory: "./seeds/*.sql"
 sql_paths = ["./seed.sql"]

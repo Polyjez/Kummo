@@ -10,10 +10,9 @@ class Settings(BaseSettings):
     supabase_url: str
     supabase_api_key: str
 
-    # Runtime connection, as the DML-only `kummo_app` role.
+    # Runtime connection, as the DML-only `kummo_app` role. The backend never does
+    # DDL -- schema changes are Supabase CLI migrations, applied out of band.
     database_url: str
-    # DDL connection, as `kummo_migrator`. Used by Alembic only.
-    migration_database_url: str
 
     # Where this app is served. Used to build the OAuth callback URL and to decide
     # where to send the browser after a provider redirect.

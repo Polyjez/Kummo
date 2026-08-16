@@ -1,8 +1,8 @@
 """Database connection, shared by every feature.
 
 Connections are made as `kummo_app`, which holds DML privileges only. Schema changes
-go through Alembic as `kummo_migrator` — see `backend/alembic/`. What the tables look
-like is `data_model.py`'s business, not this module's.
+are Supabase CLI migrations — see `supabase/migrations/`. What the tables look like is
+`data_model.py`'s business, not this module's.
 """
 
 import logging

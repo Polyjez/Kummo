@@ -4,7 +4,6 @@ version = "0.1.0"
 description = "Kummo API backend"
 requires-python = ">=3.12"
 dependencies = [
-    "alembic>=1.14",
     "asyncpg>=0.30",
     "fastapi[standard]>=0.115",
     "pydantic-settings>=2.7",
@@ -12,11 +11,8 @@ dependencies = [
     "supabase>=2.15",
 ]
 
-# Operational tasks are plain console scripts so `uv run <name>` is the only
-# entry point; no separate task runner is involved.
-[project.scripts]
-kummo-db-seed = "kummo.tasks:db_seed"
-kummo-db-reset = "kummo.tasks:db_reset"
+# No console scripts: database tasks belong to the Supabase CLI
+# (`pnpm exec supabase db reset` rebuilds the local database, seed included).
 
 [build-system]
 requires = ["hatchling"]

@@ -22,27 +22,24 @@ There are two modes, selected by the `[env]` argument to the start scripts:
 Uses a **Supabase instance running in Docker** (managed by the Supabase CLI).
 Reads credentials from `.env.local`. The start script:
 1. Stops any stale Supabase containers, then runs `pnpm exec supabase start` (Docker required).
-2. Runs `uv run alembic upgrade head` to create/update the `kummo` schema.
+2. Runs `pnpm exec supabase migration up` to apply any pending migrations.
 3. Starts the FastAPI backend (`fastapi dev`, hot-reload) on port 8000.
 
-Rebuild the local DB from scratch with `uv run kummo-db-reset` (from `backend/`). It chains
-`supabase db reset` → `alembic upgrade head` → seed, in that order — the order matters, because
-`supabase db reset` replays only the CLI migrations and the `kummo` tables do not exist until
-Alembic has run. That is also why `[db.seed] enabled = false` in `supabase/config.toml`.
+Rebuild the local DB from scratch with `pnpm exec supabase db reset` — it replays every
+migration and then applies `supabase/seed.sql`.
 
 ### Cloud mode — `./start-kummo.sh prod`
 Uses the **hosted Supabase project** (`https://xusuvidhmuyzpfrtxutd.supabase.co`).
 Reads credentials from `.env.prod` and starts the FastAPI backend (`fastapi run`, no hot-reload)
 on port 8000. No Docker required. Migrations are not applied automatically in this mode.
 
-Every `.env.*` file must contain `SUPABASE_URL`, `SUPABASE_API_KEY`, `DATABASE_URL` and
-`MIGRATION_DATABASE_URL` — see `backend/.env.example`.
+Every `.env.*` file must contain `SUPABASE_URL`, `SUPABASE_API_KEY` and `DATABASE_URL` —
+see `backend/.env.example`.
 
 ### Manual start (either mode)
 ```bash
 # Export credentials first
-export SUPABASE_URL=... SUPABASE_API_KEY=...
-export DATABASE_URL=... MIGRATION_DATABASE_URL=...
+export SUPABASE_URL=... SUPABASE_API_KEY=... DATABASE_URL=...
 
 cd backend
 uv run fastapi dev src/kummo/main.py   # local
@@ -57,6 +54,9 @@ Then open `http://localhost:8000`. Do not open HTML files with `file://` — the
 - `uv run pytest -m 'not integration'` — route tests with a stubbed session; no database needed.
 - `uv run pytest -m integration` — real queries against the local Supabase Postgres. Each test
   runs in a transaction that is rolled back, so seed data survives.
+- `tests/integration/test_schema_matches_data_model.py` is the guard that replaced Alembic
+  autogenerate: it reflects the live `kummo` schema and compares it to `Entity.metadata`, so a
+  migration without the matching `data_model.py` change (or the reverse) fails here.
 - Auth routes are tested by stubbing the `service` module — it is the only boundary that
   talks to the provider, so replacing it exercises cookies, profile linking and status
   codes without a network call.
@@ -112,8 +112,9 @@ Then open `http://localhost:8000`. Do not open HTML files with `file://` — the
 - Canonical project URL: `https://xusuvidhmuyzpfrtxutd.supabase.co` (20-char ref).
 - Credentials live only in `.env.*` files, read by the FastAPI backend via pydantic-settings. They are never sent to the browser.
 - **Supabase is used for Auth only.** Application data does not go through PostgREST: the browser never talks to Supabase and we do not use RLS, so PostgREST would be a pure HTTP hop. The backend connects to Postgres directly.
-- **Two migration tools, two owners.** `supabase/migrations/` (CLI, runs as `postgres`) owns auth config, extensions and anything outside `kummo`. `backend/alembic/` (runs as `kummo_migrator`) owns every application table in the `kummo` schema. Do not create application tables from a CLI migration.
-- **Two DB roles**: `kummo_migrator` for DDL (Alembic only), `kummo_app` for DML at runtime. Both are defined in `supabase/migrations/20260804155602_kummo-backend.sql`.
+- **One migration chain.** `supabase/migrations/` (CLI, plain SQL, runs as `postgres`) owns *all* DDL — auth config, extensions, roles and every application table in `kummo`. Alembic was removed; see `Docs/decisions/0004-supabase-cli-single-migration-chain.md`. If you find a reference to `backend/alembic/`, `MIGRATION_DATABASE_URL` or `kummo-db-reset`, it is stale.
+- **One DB role of our own**: `kummo_app`, DML only, defined in `supabase/migrations/20260804155602_kummo-backend.sql`. Migrations are owned by whatever role the CLI connects as; a migration that adds a table ends with `grant select, insert, update, delete on all tables in schema kummo to kummo_app;`.
+- **Never `set role` / `reset role` in a migration.** The CLI records each applied migration with an `INSERT` into `supabase_migrations` *inside that migration's transaction*, so a role switch still in effect makes the push fail with `permission denied for schema supabase_migrations`. This is why there is no separate migrator role.
 - Profile tables carry `auth_user_id` — unique, but no foreign key, since `auth.users` belongs to GoTrue's own role.
 
 ## Project layout
@@ -129,22 +130,18 @@ Kummo/
     snippets/                  # one-off SQL run by hand against the hosted project
   test/                        # Vitest frontend tests
   backend/                     # FastAPI Python backend
-    pyproject.toml             # uv project config; [project.scripts] holds the tasks
+    pyproject.toml             # uv project config
     .python-version            # pins Python 3.12
     .env.example               # key reference; the real files are ../.env.<env>
-    alembic.ini
-    alembic/                   # migrations for the kummo schema
     src/kummo/                 # organized by feature, not by technology
       main.py                  # FastAPI app, mounts /api and serves static files
       config.py                # pydantic-settings Settings class
       db.py                    # async engine + get_session dependency
       data_model.py            # shared: Entity base, SCHEMA, column conventions
       errors.py                # KummoError, the project-wide base exception
-      tasks.py                 # kummo-db-seed / kummo-db-reset console scripts
       vendors/                 # data_model.py, api_model.py, routes.py
       activities/              # data_model.py, api_model.py, routes.py
       clients/                 # data_model.py (API surface arrives with enrichment)
-      bookings/                # data_model.py (frontend still uses localStorage)
       auth/                    # routes, api_model, service, tokens, cookies,
                                # profiles, dependencies, errors
     tests/                     # pytest backend tests
@@ -154,14 +151,16 @@ Kummo/
 **Running the backend** (from `backend/`):
 ```bash
 uv sync --all-groups
-uv run --env-file ../.env.local alembic upgrade head            # create/update the kummo schema
 uv run --env-file ../.env.local fastapi dev src/kummo/main.py   # hot-reload dev server on :8000
 ```
 
+Schema changes are not a backend task — they are `pnpm exec supabase migration up` (or
+`db reset`) from the repo root.
+
 **The env file lives at the repo root, not in `backend/`.** `Settings` resolves `env_file`
 relative to the current working directory, so a bare `uv run` from `backend/` finds nothing and
-fails on the four required keys. Pass `--env-file ../.env.<env>` — it is a `uv run` flag, so it
-must come *before* the command, or it is forwarded to alembic/fastapi instead. To avoid repeating
+fails on the three required keys. Pass `--env-file ../.env.<env>` — it is a `uv run` flag, so it
+must come *before* the command, or it is forwarded to fastapi instead. To avoid repeating
 it, `export UV_ENV_FILE=../.env.local` for the shell session; the path is still resolved against
 the CWD, so it only holds while you are in `backend/`.
 
@@ -174,8 +173,8 @@ is not already in the environment, and pydantic-settings prefers the environment
 - **`logging` for output** — use the standard `logging` module (`logging.getLogger(__name__)`). Never use `print()` in backend code.
 - **Organize by feature, not by technology** — each feature package owns its `data_model.py` (persisted entities), `api_model.py` (Pydantic request/response types) and `routes.py`. Anything genuinely shared moves up one level (`data_model.py`, `db.py`, `errors.py`). There is no top-level `models.py` or `api/` package.
 - **Keep the two models apart** — `api_model.py` is the transport layer, `data_model.py` the persistence layer. They may share a class name (`Vendor` in both); import the module, not the symbol, when both are in scope. Do not return persisted entities from routes.
-- **Schema changes go through Alembic** — `uv run alembic revision --autogenerate -m "..."` after editing `orm.py`, then review the generated file. Never hand-edit the database.
-- **`uv run` is the task runner** — no Makefile, no npm scripts, no separate task tool. Operational tasks are console scripts declared in `[project.scripts]`.
+- **Schema changes are two edits, both required** — `pnpm exec supabase migration new "..."`, write the SQL (no role switching; grant `kummo_app` at the end), *and* update the feature's `data_model.py` to match. `tests/integration/test_schema_matches_data_model.py` reflects the live schema and fails if they diverge; it is what replaced Alembic autogenerate. Never hand-edit the database.
+- **The Supabase CLI is the database task runner**, `uv run` the Python one. No Makefile, no npm scripts, no console scripts.
 - **Test coverage** — every new route and non-trivial function requires a corresponding `pytest` test under `backend/tests/`. Use `httpx.AsyncClient` with `transport=ASGITransport(app=app)` for route tests, overriding `db.get_session`. Prefer the `StubSession` in `tests/conftest.py` for logic that does not need SQL, and `tests/integration/` for anything where the SQL itself is the thing under test.
 
 ## Frontend conventions

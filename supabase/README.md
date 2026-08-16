@@ -8,23 +8,36 @@ Local-stack config, auth/role migrations and dev seed data for Kummo, managed wi
 FastAPI backend reaches over a direct Postgres connection (SQLAlchemy async + asyncpg) — not
 through PostgREST. The browser never talks to Supabase, and there is no RLS.
 
-## Two migration tools, two owners
+## One migration chain
 
-| Directory | Runs as | Owns |
-|---|---|---|
-| `supabase/migrations/` (CLI) | `postgres` | roles, the `kummo` schema container, auth config, extensions — anything *outside* the `kummo` tables |
-| `backend/alembic/versions/` | `kummo_migrator` | every application table in the `kummo` schema |
+**All DDL is a CLI migration in `migrations/`** — roles, extensions, auth config *and* every
+application table in the `kummo` schema. There is one migration history, and it is the one the
+Supabase dashboard shows. Alembic was removed; see
+[ADR 0004](../Docs/decisions/0004-supabase-cli-single-migration-chain.md) for why.
 
-**Do not create application tables from a CLI migration.** New tables go through Alembic
-(`cd backend && uv run alembic revision --autogenerate -m "..."`).
+The SQLAlchemy entities in `backend/src/kummo/*/data_model.py` *describe* the schema, they no
+longer generate it. Keeping them in step is enforced by
+`backend/tests/integration/test_schema_matches_data_model.py`, which reflects the live schema and
+compares it to the declarative registry — so a migration without the matching entity change (or
+the reverse) fails the test suite.
 
-Two database roles are created by `20260804155602_kummo-backend.sql`:
+`20260804155602_kummo-backend.sql` creates one role of our own:
 
-- `kummo_migrator` — DDL only, used by Alembic (`MIGRATION_DATABASE_URL`). It owns the `kummo`
-  schema. `postgres` is granted the role only long enough to create the schema and set default
-  privileges, then the membership is revoked, so the schema is only ever changed by Alembic.
 - `kummo_app` — DML only, no DDL, no `BYPASSRLS`, used by the backend at runtime (`DATABASE_URL`).
-  Default privileges grant it `select/insert/update/delete` on anything `kummo_migrator` creates.
+
+There is deliberately **no second "migrator" role**. Objects are owned by whichever role the CLI
+connects as, and each migration that adds a table ends with an explicit grant:
+
+```sql
+grant select, insert, update, delete on all tables in schema kummo to kummo_app;
+```
+
+**Never `set role` or `reset role` in a migration.** The CLI records each applied migration with an
+`INSERT` into `supabase_migrations.schema_migrations` *inside that migration's own transaction*, so
+a role switch still in effect makes the push fail with `permission denied for schema
+supabase_migrations` — after the DDL has already run, leaving the remote half-migrated. This is the
+whole reason the owning role was dropped; see
+`snippets/reset-hosted-migration-state.sql` for the cleanup that incident required.
 
 ## Layout
 
@@ -32,7 +45,7 @@ Two database roles are created by `20260804155602_kummo-backend.sql`:
 supabase/
   config.toml        # local stack config (ports, auth, studio, …) — committed
   migrations/        # timestamped, ordered SQL migrations — committed
-  seed.sql           # dev-only seed data, applied by `uv run kummo-db-seed` — committed
+  seed.sql           # demo seed data, applied by `supabase db reset` — committed
   snippets/          # one-off SQL run by hand against the hosted project — committed
   .branches, .temp   # CLI-managed local state — gitignored
 ```
@@ -44,11 +57,13 @@ timestamp-prefixed (`YYYYMMDDHHMMSS_description.sql`) so ordering is unambiguous
 
 Current migrations:
 
-- `20260804155602_kummo-backend.sql` — creates the `kummo_migrator` / `kummo_app` roles and the
-  `kummo` schema with its default privileges.
+- `20260804155602_kummo-backend.sql` — creates the `kummo_app` role and the `kummo` schema.
 - `20260815120000_drop-legacy-public-tables.sql` — drops the old `public.shops` / `users` /
   `children` / `activities` / `bookings` tables that predate the move into `kummo`. A no-op on a
   fresh database; it matters only for databases provisioned before the move.
+- `20260816200000_kummo-application-tables.sql` — the `vendors` / `clients` / `activities`
+  tables, transcribed from the Alembic revision it replaces, minus `bookings` (created ahead of
+  the feature and never wired up).
 
 ### Creating a new migration
 
@@ -58,28 +73,26 @@ pnpm exec supabase migration new <description>
 
 Creates an empty, timestamped file in `migrations/`. No local stack needed for this step.
 
+A migration that adds a table to `kummo` must end with the `grant … to kummo_app` line above, and
+must not change role. Then update the matching `data_model.py` — the drift test will tell you if
+you forget.
+
 ### Applying migrations locally
 
-Requires Docker. The full rebuild is a backend task, because the order matters:
+Requires Docker. The full rebuild is one command:
 
 ```bash
-cd backend
-uv run kummo-db-reset    # supabase db reset → alembic upgrade head → seed.sql
+pnpm exec supabase db reset    # replay every migration, then seed.sql
 ```
-
-`supabase db reset` replays only the CLI migrations, and the `kummo` tables do not exist until
-Alembic has run — which is also why `[db.seed] enabled = false` in `config.toml` and why
-`seed.sql` is applied afterwards by `uv run kummo-db-seed` rather than by the CLI.
 
 The individual steps, if you need them separately:
 
 ```bash
-pnpm exec supabase start                        # boot Postgres/Studio/Auth, apply CLI migrations
-cd backend && uv run alembic upgrade head       # create/update the kummo tables
-cd backend && uv run kummo-db-seed              # load supabase/seed.sql
+pnpm exec supabase start           # boot Postgres/Studio/Auth
+pnpm exec supabase migration up    # apply pending migrations, without dropping the database
 ```
 
-`./start-kummo.sh local` wraps `supabase start` + `alembic upgrade head` and then runs the
+`./start-kummo.sh local` wraps `supabase start` + `supabase migration up` and then runs the
 FastAPI dev server — see the root `CLAUDE.md` for the local vs. cloud run modes.
 
 ### Applying migrations to the hosted (cloud) project
@@ -91,9 +104,8 @@ pnpm exec supabase db push                                   # applies any un-ru
 ```
 
 `db push` compares `migrations/` against the migration history table on the linked remote project
-and applies whatever hasn't run yet. It does **not** run Alembic and does **not** apply `seed.sql`.
-The `kummo` tables on the hosted project are created by running Alembic against
-`MIGRATION_DATABASE_URL` from `.env.prod`; `./start-kummo.sh prod` does not do this for you.
+and applies whatever hasn't run yet. It does **not** apply `seed.sql` — see the seed section below.
+`./start-kummo.sh prod` does not push for you — migrating the hosted project is a deliberate step.
 
 ### Conventions
 
@@ -106,17 +118,59 @@ The `kummo` tables on the hosted project are created by running Alembic against
 
 ## Seed data
 
-`seed.sql` is dev-only fixture data (Berlin vendors, activities). It is idempotent — the rows carry
+`seed.sql` is demo fixture data (Berlin vendors, activities). It is idempotent — the rows carry
 fixed UUIDs and are deleted before being re-inserted — and it uses `DELETE`, not `TRUNCATE`, because
-`kummo_app` holds DML privileges only. It is applied by `uv run kummo-db-seed`, never against the
-hosted project.
+the foreign keys make `TRUNCATE` need a `CASCADE`.
+
+> **The file opens with `DELETE FROM` on all three tables.** That is what makes it re-runnable, and
+> it is also why it must never be applied to an environment holding data you care about. It clears
+> `activities`, `clients` and `vendors` before inserting the fixtures.
+
+### Locally — `supabase db reset`
+
+Nothing to do by hand: `[db.seed]` in `config.toml` points at this file, so the reset replays every
+migration and then applies the seed.
+
+```bash
+pnpm exec supabase db reset
+```
+
+That is the only automatic path. `supabase start`, `supabase migration up` and `supabase db push`
+all leave the seed alone, as does `./start-kummo.sh`.
+
+### Hosted — the SQL editor
+
+There is deliberately **no command** that seeds the hosted project. Applying fixtures to a remote
+database — with three `DELETE`s at the top — should be a decision someone makes on purpose, not a
+flag that could be reached by accident.
+
+1. Open the project's **SQL Editor** in the Supabase dashboard.
+2. Paste the contents of `seed.sql`.
+3. Check you are on the intended project, then run it.
+
+The editor runs as `postgres`, which owns the `kummo` tables, so no grants or role changes are
+needed. Afterwards, verify:
+
+```sql
+select
+  (select count(*) from kummo.vendors)    as vendors,     -- 10
+  (select count(*) from kummo.clients)    as clients,     --  4
+  (select count(*) from kummo.activities) as activities;  -- 22
+```
+
+This was done once, on 2026-08-16, to give the hosted project content after the legacy `public.*`
+tables were lost.
 
 ## Snippets
 
 `snippets/` holds one-off SQL that is run by hand from the Supabase SQL editor and is not part of
-any migration history. `migrate-public-to-kummo.sql` copies the legacy `public.*` rows into the
-`kummo` schema on the hosted project; it must run *before*
-`20260815120000_drop-legacy-public-tables.sql` and *after* Alembic has created the `kummo` tables.
+any migration history.
+
+- `reset-hosted-migration-state.sql` — clears the hosted project's `kummo` schema, roles and
+  migration history so the chain can replay from scratch. Used on 2026-08-16; kept as the recipe
+  for taking ownership back from a role `postgres` cannot otherwise touch.
+- `migrate-public-to-kummo.sql` — **obsolete.** It copied the legacy `public.*` rows into `kummo`,
+  but those tables no longer exist in any environment. Kept for the record only.
 
 ## Config
 
@@ -128,6 +182,7 @@ Kummo-specific settings:
 - `[auth] site_url = "http://localhost:8000"` and `additional_redirect_urls` include
   `http://localhost:8000/api/auth/callback` — the backend's OAuth callback route.
 - `[auth.external.google] enabled = true` — the "Mit Google anmelden" flow on `login.html`.
-- `[db.seed] enabled = false` — see the ordering note above.
+- `[db.seed] enabled = true` — `supabase db reset` applies `seed.sql` itself, so the reset is the
+  whole local rebuild.
 
 It is committed so the whole team boots an identical local stack.
