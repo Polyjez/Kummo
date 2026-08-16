@@ -184,6 +184,16 @@ is not already in the environment, and pydantic-settings prefers the environment
 - **`logging` for output** — use the standard `logging` module (`logging.getLogger(__name__)`). Never use `print()` in backend code. `logs.configure()` is called once from `main.py` and is what attaches a handler to the root logger; without it every application log statement is silently discarded, since uvicorn configures only its own loggers. Level comes from `LOG_LEVEL` (default `INFO`).
 - **Every log line carries a request id.** `main.py`'s `request_context` middleware binds one per request in a `ContextVar` and echoes it in the `X-Request-ID` response header, honouring a caller-supplied one when it looks like an id. A `logging.Filter` stamps it onto every record, including those from SQLAlchemy, httpx and uvicorn, so nothing has to pass it around. Lines emitted outside a request show `-`.
 - **Log identifiers, not people.** Profile and auth-user UUIDs, never email addresses or names — these lines are an audit trail, not a mailing list, and the ids are what joins them. Never log tokens, passwords, or provider-supplied text verbatim; run caller-controlled strings through `routes._log_safe` first, since a newline in one forges log entries.
+- **Metrics live in `metrics.py`, scraped at `GET /metrics`.** `prometheus_client`'s default
+  registry, so the process and GC collectors come along too. The `request_context` middleware
+  records every request from the same measurement it logs; routes add the domain counters
+  (`kummo_auth_events_total`, `kummo_activities_created_total`) for outcomes a status code cannot
+  express — several provider errors reach the caller as one 401. **Labels must stay low
+  cardinality and must never carry caller-supplied text**: the route *template*, never the path,
+  and event names are constants in `metrics.py`, not strings from the request. The endpoint is
+  outside `/api` (so no line per scrape) and unauthenticated — expose it only inside the
+  deployment's network boundary. One registry per process: several uvicorn workers would need
+  `PROMETHEUS_MULTIPROC_DIR`.
 - **Organize by feature, not by technology** — each feature package owns its `data_model.py` (persisted entities), `api_model.py` (Pydantic request/response types) and `routes.py`. Anything genuinely shared moves up one level (`data_model.py`, `db.py`, `errors.py`). There is no top-level `models.py` or `api/` package.
 - **Keep the two models apart** — `api_model.py` is the transport layer, `data_model.py` the persistence layer. They may share a class name (`Vendor` in both); import the module, not the symbol, when both are in scope. Do not return persisted entities from routes.
 - **Schema changes are two edits, both required** — `pnpm exec supabase migration new "..."`, write the SQL (no role switching; grant `kummo_app` at the end), *and* update the feature's `data_model.py` to match. `tests/integration/test_schema_matches_data_model.py` reflects the live schema and fails if they diverge; it is what replaced Alembic autogenerate. Never hand-edit the database.

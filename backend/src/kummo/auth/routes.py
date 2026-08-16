@@ -12,6 +12,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .. import metrics
 from ..config import Settings, get_settings
 from ..db import get_session
 from . import cookies, service
@@ -98,6 +99,7 @@ async def register_client(
     try:
         auth_session = await service.sign_up(body.email, body.password)
     except AuthError as error:
+        metrics.record_auth_event(metrics.AUTH_REGISTER_CLIENT, metrics.FAILURE)
         raise _http_error(error) from error
 
     profile = await ensure_client_profile(
@@ -106,6 +108,7 @@ async def register_client(
     # Identifiers, never the address: these lines are an audit trail, not a mailing
     # list, and the profile id is what every other line here can be joined on.
     logger.info("Registered client %s", profile.id)
+    metrics.record_auth_event(metrics.AUTH_REGISTER_CLIENT)
     cookies.set_session_cookies(response, auth_session)
     return _as_current_user(profile)
 
@@ -119,6 +122,7 @@ async def register_vendor(
     try:
         auth_session = await service.sign_up(body.email, body.password)
     except AuthError as error:
+        metrics.record_auth_event(metrics.AUTH_REGISTER_VENDOR, metrics.FAILURE)
         raise _http_error(error) from error
 
     profile = await ensure_vendor_profile(
@@ -131,6 +135,7 @@ async def register_vendor(
         website=body.website,
     )
     logger.info("Registered vendor %s", profile.id)
+    metrics.record_auth_event(metrics.AUTH_REGISTER_VENDOR)
     cookies.set_session_cookies(response, auth_session)
     return _as_current_user(profile)
 
@@ -144,6 +149,9 @@ async def login(
     try:
         auth_session = await service.sign_in(body.email, body.password)
     except AuthError as error:
+        # Worth a series of its own: several distinct provider errors arrive at the
+        # caller as the same 401, so the status code cannot tell them apart.
+        metrics.record_auth_event(metrics.AUTH_LOGIN, metrics.FAILURE)
         raise _http_error(error) from error
 
     profile = await find_profile(db, auth_session.auth_user_id)
@@ -166,6 +174,7 @@ async def login(
         )
 
     logger.info("Signed in %s %s", profile.role, profile.id)
+    metrics.record_auth_event(metrics.AUTH_LOGIN)
     cookies.set_session_cookies(response, auth_session)
     return _as_current_user(profile)
 
@@ -183,6 +192,7 @@ async def logout(request: Request) -> Response:
     response = Response(status_code=204)
     cookies.clear_session_cookies(response)
     cookies.clear_oauth_state(response)
+    metrics.record_auth_event(metrics.AUTH_LOGOUT)
     return response
 
 
@@ -199,6 +209,7 @@ async def refresh(
     try:
         auth_session = await service.refresh(refresh_token)
     except AuthError as error:
+        metrics.record_auth_event(metrics.AUTH_REFRESH, metrics.FAILURE)
         # Returned, not raised, so the cookie clearing survives — otherwise the browser
         # keeps a token the provider has already rejected and re-sends it every time.
         failed = _failed_response(error)
@@ -213,8 +224,10 @@ async def refresh(
             {"detail": "No profile linked to this account"}, status_code=404
         )
         cookies.clear_session_cookies(failed)
+        metrics.record_auth_event(metrics.AUTH_REFRESH, metrics.FAILURE)
         return failed
 
+    metrics.record_auth_event(metrics.AUTH_REFRESH)
     cookies.set_session_cookies(response, auth_session)
     return _as_current_user(profile)
 
@@ -237,11 +250,15 @@ async def start_oauth(
     if provider not in SUPPORTED_PROVIDERS:
         # Summarised, not interpolated: the path segment is caller-controlled.
         logger.info("OAuth requested for an unknown provider (%s)", _log_safe(provider))
+        # The provider is not a label: it is a path segment the caller chose, and this
+        # branch is exactly the case where it is not one of the values we support.
+        metrics.record_auth_event(metrics.AUTH_OAUTH_START, metrics.FAILURE)
         raise HTTPException(status_code=404, detail="Unknown provider")
 
     redirect = service.build_oauth_redirect(
         provider, f"{settings.app_base_url.rstrip('/')}/api/auth/callback"
     )
+    metrics.record_auth_event(metrics.AUTH_OAUTH_START)
     response = RedirectResponse(redirect.url, status_code=307)
     cookies.set_oauth_state(response, redirect.code_verifier, redirect.state)
     return response
@@ -261,6 +278,9 @@ async def oauth_callback(
     expected_state, verifier = cookies.read_oauth_state(request)
 
     def back_to_login() -> RedirectResponse:
+        # Every way this callback can fail ends here, so one count covers them all —
+        # and the redirect is a 303 either way, which is why the status code cannot.
+        metrics.record_auth_event(metrics.AUTH_OAUTH_CALLBACK, metrics.FAILURE)
         failed = RedirectResponse(f"{base}/login.html?error=oauth", status_code=303)
         cookies.clear_oauth_state(failed)
         return failed
@@ -304,6 +324,7 @@ async def oauth_callback(
     # Land on the page that belongs to the role, the same split the frontend
     # guard enforces: a vendor has no profile page, a client no dashboard.
     logger.info("Signed in %s %s via OAuth", profile.role, profile.id)
+    metrics.record_auth_event(metrics.AUTH_OAUTH_CALLBACK)
     destination = "/vendor.html" if profile.role == "vendor" else "/client.html"
     response = RedirectResponse(f"{base}{destination}", status_code=303)
     cookies.clear_oauth_state(response)

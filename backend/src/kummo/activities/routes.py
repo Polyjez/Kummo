@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from .. import metrics
 from ..auth.dependencies import get_current_vendor
 from ..auth.profiles import Profile
 from ..db import get_session
@@ -47,6 +48,7 @@ async def create_activity(
     await session.commit()
     await session.refresh(activity)
     logger.info("Vendor %s created activity %s", vendor.id, activity.id)
+    metrics.record_activity_created()
     return Activity.model_validate(activity)
 
 
