@@ -4,6 +4,7 @@ Technical, developer-facing documentation — the *how*. Start here for the impl
 
 ## Reading order
 
+0. **[implementation-status.md](implementation-status.md)** — what is built and what remains. The documents below describe the **target** and do not change as code lands; this one is the only current-state view. Read it first if you are picking up work.
 1. **[specification.md](specification.md)** — the consolidated developer specification (entry point). Ties the product requirements, data model, flows, and decisions into one buildable reference. Contains `TODO` markers where sections are still to be authored.
 2. **[data-model.md](data-model.md)** — conceptual ER model (entities, relationships, settled assumptions). Open modeling choices in [open_questions/technical/data-model.md](../open_questions/technical/data-model.md).
 3. **[sequence-diagrams/](sequence-diagrams/)** — one flow per use case, following the target architecture (frontend → Python API → Supabase; server-side payment confirmation). See its [README](sequence-diagrams/README.md) for the use-case coverage map.

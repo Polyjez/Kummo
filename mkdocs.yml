@@ -76,6 +76,7 @@ nav:
       - Brainstorming: product/brainstorming.md
   - Engineering:
       - Overview: engineering/README.md
+      - Implementation status: engineering/implementation-status.md
       - Specification: engineering/specification.md
       - Data model: engineering/data-model.md
       - Sequence diagrams:
@@ -97,6 +98,7 @@ nav:
       - 0001 — Payment via Stripe Connect: decisions/0001-payment-stripe-connect.md
       - 0002 — Booking build vs. buy: decisions/0002-booking-build-vs-buy.md
       - 0003 — Persistence (SQLAlchemy): decisions/0003-persistence-sqlalchemy.md
+      - 0004 — Supabase CLI as the single migration chain: decisions/0004-supabase-cli-single-migration-chain.md
   - Open questions:
       - Overview: open_questions/README.md
       - Business:

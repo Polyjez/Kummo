@@ -6,6 +6,9 @@
 | **Audience** | Developers implementing the target (hand-coded) version |
 | **Sources** | [../product/requirements.md](../product/requirements.md), [data-model.md](data-model.md), [sequence-diagrams/](sequence-diagrams/), [../decisions/](../decisions/) |
 
+> **This document describes the target, not the code.** For what is actually implemented today
+> and what is still missing, see [implementation-status.md](implementation-status.md).
+
 > **Purpose.** One buildable reference that ties together *what* to build (product requirements), *how* the data is shaped (data model), *how* flows run (sequence diagrams), and *why* the key technical choices were made (decision records). This is the document a new developer reads first. It links to the source documents rather than duplicating them; where a source is authoritative, this spec points at it.
 
 ---

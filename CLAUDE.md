@@ -4,7 +4,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-Kummo is a B2B2C web app for discovering and booking family/senior-friendly activities in Berlin. The full product vision lives in `README.md` (the PRD), which describes a *Glide* (no-code) MVP. **The actual codebase does not use Glide** — it is a static multi-page site (`static/`) served by a **FastAPI** backend (`backend/`). The backend talks to Postgres directly (SQLAlchemy async + asyncpg) and uses **Supabase** for Auth (GoTrue) only. Treat the PRD as product intent, not as a description of the current implementation.
+Kummo is a B2B2C web app for discovering and booking family/senior-friendly activities in Berlin. It is a static multi-page site (`static/`) served by a **FastAPI** backend (`backend/`). The backend talks to Postgres directly (SQLAlchemy async + asyncpg) and uses **Supabase** for Auth (GoTrue) only.
+
+Documentation lives in `Docs/` (MkDocs site; index at `Docs/README.md`). Two entry points matter:
+`Docs/engineering/implementation-status.md` is the **only** current-state document — what is built
+and what remains — while `Docs/product/requirements.md` and `Docs/engineering/specification.md`
+describe the **target** and do not change as code lands. The original PRD
+(`Docs/archive/prd-glide-mvp.md`) describes a *Glide* no-code MVP; **the codebase does not use
+Glide** — treat it as historical product intent. The root `README.md` carries the commands
+(running, tests, migrations), not product content.
 
 ## Language rules
 
