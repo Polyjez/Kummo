@@ -6,6 +6,7 @@ from fastapi.staticfiles import StaticFiles
 
 from .activities import routes as activities
 from .auth import routes as auth
+from .auth.tokens import reset_verifier_client
 from .db import dispose_engine
 from .vendors import routes as vendors
 
@@ -14,6 +15,7 @@ from .vendors import routes as vendors
 async def lifespan(app: FastAPI):
     yield
     await dispose_engine()
+    reset_verifier_client()
 
 
 app = FastAPI(title="Kummo API", version="0.1.0", lifespan=lifespan)

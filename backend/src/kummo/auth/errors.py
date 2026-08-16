@@ -37,11 +37,3 @@ class SessionExpired(AuthError):
 
 class OAuthExchangeFailed(AuthError):
     """The provider redirect could not be turned into a session."""
-
-
-class ProfileNotFound(AuthError):
-    """Authenticated, but no client or vendor profile is linked to the identity."""
-
-
-class WrongProfileRole(AuthError):
-    """Authenticated with the wrong kind of profile for this route."""

@@ -1,9 +1,19 @@
 """Access-token verification.
 
-Verification happens against the provider's published signing keys, which the client
-caches in-process — so this is a local check, not a network round trip per request.
-That is why one client instance is reused here, unlike `service.py`: `get_claims`
-reads nothing from and writes nothing to session storage.
+Verification goes through the provider client, which is why one instance is reused
+here unlike in `service.py`: `get_claims` reads nothing from and writes nothing to
+session storage.
+
+**This is not a purely local check today.** `get_claims` only verifies a signature
+locally when the token is signed with an asymmetric key it can fetch from the JWKS
+endpoint. The Supabase project signs with HS256 (`supabase/config.toml` leaves
+`signing_keys_path` commented out), and for HS256 the client falls back to calling
+the provider's `/user` endpoint — so every authenticated request costs a network
+round trip. Moving to asymmetric signing keys is what would make it local; until
+then, do not describe it as one.
+
+`get_claims` also validates nothing but `exp`, so the issuer and audience checks
+below are ours to make.
 """
 
 import logging
@@ -16,6 +26,9 @@ from ..config import get_settings
 from .errors import InvalidToken
 
 logger = logging.getLogger(__name__)
+
+# Every GoTrue access token for a signed-in (non-anonymous) user carries this.
+EXPECTED_AUDIENCE = "authenticated"
 
 _verifier_client: AsyncClient | None = None
 
@@ -55,11 +68,44 @@ async def verify_access_token(token: str) -> Identity:
         raise InvalidToken("The access token is not valid.")
 
     claims = response.get("claims") if isinstance(response, dict) else response.claims
+    _check_issuer(claims.get("iss"))
+    _check_audience(claims.get("aud"))
+
     subject = claims.get("sub")
     if not subject:
         raise InvalidToken("The access token carries no subject.")
 
-    return Identity(auth_user_id=UUID(str(subject)), email=claims.get("email") or "")
+    try:
+        auth_user_id = UUID(str(subject))
+    except ValueError as error:
+        raise InvalidToken("The access token subject is not a user id.") from error
+
+    return Identity(auth_user_id=auth_user_id, email=claims.get("email") or "")
+
+
+def expected_issuer() -> str:
+    return f"{get_settings().supabase_url.rstrip('/')}/auth/v1"
+
+
+def _check_issuer(issuer: object) -> None:
+    expected = expected_issuer()
+    if issuer != expected:
+        # Both values, because a misconfigured SUPABASE_URL rejects every token and
+        # the difference is the whole diagnosis.
+        logger.warning(
+            "Access token rejected: issuer %r does not match the expected %r",
+            issuer,
+            expected,
+        )
+        raise InvalidToken("The access token was not issued for this application.")
+
+
+def _check_audience(audience: object) -> None:
+    # The claim is a string in GoTrue's tokens, but the JWT spec allows a list.
+    values = audience if isinstance(audience, list) else [audience]
+    if EXPECTED_AUDIENCE not in values:
+        logger.info("Access token rejected: unexpected audience %r", audience)
+        raise InvalidToken("The access token was not issued for this application.")
 
 
 def reset_verifier_client() -> None:

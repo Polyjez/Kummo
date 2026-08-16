@@ -44,23 +44,38 @@ def set_session_cookies(response: Response, session: Session) -> None:
     )
 
 
+def _clear(response: Response, name: str) -> None:
+    """Expire a cookie with the same attributes it was set with.
+
+    Browsers match a deletion on name, path and domain alone, so the flags are not
+    strictly required — but keeping them identical is what lets the set and the clear
+    stay in step if the attributes ever change (a `__Secure-` prefix, say).
+    """
+    response.delete_cookie(name, **_base_kwargs())
+
+
 def clear_session_cookies(response: Response) -> None:
     for name in (SESSION_COOKIE, REFRESH_COOKIE):
-        response.delete_cookie(name, path="/")
+        _clear(response, name)
 
 
-def set_oauth_state(response: Response, code_verifier: str) -> None:
-    """Carry the PKCE verifier across the provider redirect."""
+def set_oauth_state(response: Response, code_verifier: str, state: str) -> None:
+    """Carry the PKCE verifier and the CSRF state across the provider redirect.
+
+    Both halves live in one cookie because they share a lifetime and are always read
+    and cleared together. `state` is generated from `token_urlsafe`, so it never
+    contains the separator.
+    """
     response.set_cookie(
         OAUTH_VERIFIER_COOKIE,
-        code_verifier,
+        f"{state}.{code_verifier}",
         max_age=OAUTH_STATE_MAX_AGE,
         **_base_kwargs(),
     )
 
 
 def clear_oauth_state(response: Response) -> None:
-    response.delete_cookie(OAUTH_VERIFIER_COOKIE, path="/")
+    _clear(response, OAUTH_VERIFIER_COOKIE)
 
 
 def read_access_token(request: Request) -> str:
@@ -71,5 +86,10 @@ def read_refresh_token(request: Request) -> str:
     return request.cookies.get(REFRESH_COOKIE, "")
 
 
-def read_oauth_verifier(request: Request) -> str:
-    return request.cookies.get(OAUTH_VERIFIER_COOKIE, "")
+def read_oauth_state(request: Request) -> tuple[str, str]:
+    """The `(state, code_verifier)` pair set before the redirect, or two empty strings."""
+    raw = request.cookies.get(OAUTH_VERIFIER_COOKIE, "")
+    state, separator, verifier = raw.partition(".")
+    if not separator or not state or not verifier:
+        return "", ""
+    return state, verifier

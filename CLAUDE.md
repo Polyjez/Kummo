@@ -108,7 +108,10 @@ Then open `http://localhost:8000`. Do not open HTML files with `file://` — the
 - The session is two HttpOnly cookies (`kummo_session`, `kummo_refresh`). No token ever reaches page JS, and no response body names Supabase.
 - **Registration cannot be atomic** — the identity is created over HTTP while the profile row is a local transaction, and removing a stray identity would need the service key we do not hold. So every entry path calls `ensure_*_profile`, and an interrupted registration is completed on the next sign-in rather than compensated. Do not add a "delete the auth user" rollback.
 - **OAuth signup always creates a client.** A vendor is also the shop, so it needs an address and activity types that a Google profile cannot supply. Existing vendors can still sign in via Google — the callback finds the profile already linked.
-- OAuth uses PKCE with the verifier in a short-lived HttpOnly cookie, because the authorize request and the callback are separate HTTP requests.
+- OAuth uses PKCE **and** a `state` value, both in one short-lived HttpOnly cookie (`kummo_oauth_verifier`, stored as `state.verifier`), because the authorize request and the callback are separate HTTP requests. The callback rejects a missing or mismatched `state`.
+- Access tokens are verified for issuer and audience in `tokens.py` — the provider client checks only `exp`. Note that verification is **not** local today: tokens are HS256, so the client falls back to a call to the provider on every authenticated request.
+- **Writes require the matching role.** `POST /api/activities` depends on `get_current_vendor` and takes `vendor_id` from the session, not the body — `ActivityCreate` deliberately has no `vendor_id` field. Reads (`GET /api/vendors`, `GET /api/activities`) stay public: they are the catalogue anonymous visitors browse.
+- Any route that must both fail *and* clear cookies has to **return** a response, not raise: FastAPI merges the injected `Response`'s headers only on the normal return path, so `raise` silently discards them.
 
 **Data sources:**
 - **FastAPI backend** (`/api/*`): all reads and writes go through the backend, which holds the database and Supabase credentials server-side. No Supabase SDK in the browser.

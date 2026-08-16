@@ -17,8 +17,9 @@ from dataclasses import dataclass
 from urllib.parse import urlencode
 from uuid import UUID
 
+import httpx
 from supabase import AsyncClient, AsyncClientOptions, create_async_client
-from supabase_auth.errors import AuthApiError, AuthError as ProviderAuthError
+from supabase_auth.errors import AuthError as ProviderAuthError
 
 from ..config import get_settings
 from .errors import (
@@ -51,6 +52,7 @@ class Session:
 class OAuthRedirect:
     url: str
     code_verifier: str
+    state: str
 
 
 async def _client() -> AsyncClient:
@@ -91,7 +93,9 @@ def _translate(error: ProviderAuthError) -> AuthError:
     if code in {"user_already_exists", "email_exists"}:
         return EmailAlreadyRegistered("That email address already has an account.")
     if code == "weak_password":
-        return WeakPassword(message)
+        # The provider's own wording would name it in a 400 body; keep ours.
+        logger.info("Password rejected by the provider policy: %s", message)
+        return WeakPassword("That password is too weak. Choose a longer one.")
     if code in {"invalid_credentials", "invalid_grant"}:
         return InvalidCredentials("Wrong email or password.")
     if "Invalid login credentials" in message:
@@ -100,12 +104,20 @@ def _translate(error: ProviderAuthError) -> AuthError:
     return AuthError(message)
 
 
+def _unavailable(error: Exception) -> AuthError:
+    """A transport failure is not an authentication answer — it is a 502."""
+    logger.warning("Identity provider unreachable: %s", error)
+    return AuthError("The identity provider is unavailable.")
+
+
 async def sign_up(email: str, password: str) -> Session:
     client = await _client()
     try:
         response = await client.auth.sign_up({"email": email, "password": password})
-    except AuthApiError as error:
+    except ProviderAuthError as error:
         raise _translate(error) from error
+    except httpx.HTTPError as error:
+        raise _unavailable(error) from error
     return _to_session(response)
 
 
@@ -115,8 +127,10 @@ async def sign_in(email: str, password: str) -> Session:
         response = await client.auth.sign_in_with_password(
             {"email": email, "password": password}
         )
-    except AuthApiError as error:
+    except ProviderAuthError as error:
         raise _translate(error) from error
+    except httpx.HTTPError as error:
+        raise _unavailable(error) from error
     return _to_session(response)
 
 
@@ -124,44 +138,77 @@ async def refresh(refresh_token: str) -> Session:
     client = await _client()
     try:
         response = await client.auth.refresh_session(refresh_token)
-    except AuthApiError as error:
+    except ProviderAuthError as error:
         raise SessionExpired("The session could not be refreshed.") from error
+    except httpx.HTTPError as error:
+        raise _unavailable(error) from error
     return _to_session(response)
 
 
-async def sign_out(access_token: str, refresh_token: str) -> None:
-    """Revoke this session only; other devices stay signed in."""
+async def sign_out(refresh_token: str, access_token: str = "") -> None:
+    """Revoke this session only; other devices stay signed in.
+
+    The access token is the optional half: it expires in an hour while the refresh
+    cookie lives for thirty days, so by the time somebody clicks "Abmelden" it is
+    usually gone or stale. Spending the refresh token for a fresh one is what makes
+    logging out actually revoke the session rather than only clearing the cookies.
+    """
     client = await _client()
     try:
-        await client.auth.set_session(access_token, refresh_token)
+        established = False
+        if access_token:
+            try:
+                await client.auth.set_session(access_token, refresh_token)
+                established = True
+            except ProviderAuthError:
+                pass  # Stale access token; fall through to spending the refresh one.
+        if not established:
+            # Buying a fresh access token also rotates the old refresh token away.
+            await client.auth.refresh_session(refresh_token)
         await client.auth.sign_out({"scope": "local"})
     except ProviderAuthError as error:
-        # An already-invalid token is not a failure worth surfacing: the caller
-        # wanted to be logged out, and the cookies are cleared either way.
-        logger.info("Sign-out on an already-invalid session: %s", error)
+        # An already-invalid token is not worth surfacing — the caller wanted to be
+        # logged out and the cookies are cleared either way — but a token we failed
+        # to revoke outlives the logout, so it is a warning, not an aside.
+        logger.warning("Could not revoke the session on sign-out: %s", error)
+    except httpx.HTTPError as error:
+        logger.warning("Identity provider unreachable during sign-out: %s", error)
 
 
 def build_oauth_redirect(provider: str, redirect_to: str) -> OAuthRedirect:
-    """Authorize URL for the provider, with a freshly minted PKCE verifier.
+    """Authorize URL for the provider, with a freshly minted PKCE verifier and state.
 
     Built by hand rather than through `sign_in_with_oauth` because that method keeps
     the verifier in the client's storage, which does not survive to the callback
-    request. The verifier travels in an HttpOnly cookie instead.
+    request. The verifier and the state travel in an HttpOnly cookie instead.
+
+    PKCE alone would already stop an attacker's authorization code from being redeemed
+    in somebody else's browser, since the verifier never leaves that browser. `state`
+    is carried anyway because the callback is the one state-changing GET in the app —
+    the request shape `SameSite=Lax` still sends cookies on — and OAuth 2.0 BCP asks
+    for it.
     """
     verifier = secrets.token_urlsafe(64)
     digest = hashlib.sha256(verifier.encode("ascii")).digest()
     challenge = base64.urlsafe_b64encode(digest).decode("ascii").rstrip("=")
+    state = secrets.token_urlsafe(32)
 
     query = urlencode(
         {
             "provider": provider,
             "redirect_to": redirect_to,
             "code_challenge": challenge,
-            "code_challenge_method": "s256",
+            # RFC 7636 spells the method in uppercase.
+            "code_challenge_method": "S256",
+            "state": state,
         }
     )
     base = get_settings().supabase_url.rstrip("/")
-    return OAuthRedirect(url=f"{base}/auth/v1/authorize?{query}", code_verifier=verifier)
+    return OAuthRedirect(
+        url=f"{base}/auth/v1/authorize?{query}",
+        code_verifier=verifier,
+        state=state,
+    )
 
 
 async def exchange_code(code: str, code_verifier: str) -> Session:
@@ -172,4 +219,6 @@ async def exchange_code(code: str, code_verifier: str) -> Session:
         )
     except ProviderAuthError as error:
         raise OAuthExchangeFailed("The sign-in could not be completed.") from error
+    except httpx.HTTPError as error:
+        raise _unavailable(error) from error
     return _to_session(response)

@@ -11,10 +11,14 @@ from pydantic import BaseModel, EmailStr, Field
 
 Role = Literal["client", "vendor"]
 
+# The provider hashes with bcrypt, which silently ignores everything past 72 bytes:
+# accepting more would mean quietly storing a shorter password than the one typed.
+PASSWORD_MAX_LENGTH = 72
+
 
 class ClientRegistration(BaseModel):
     email: EmailStr
-    password: str = Field(min_length=8)
+    password: str = Field(min_length=8, max_length=PASSWORD_MAX_LENGTH)
     first_name: str = Field(min_length=1)
     last_name: str = Field(min_length=1)
 
@@ -23,7 +27,7 @@ class VendorRegistration(BaseModel):
     """A vendor is also the shop, so registration collects the business details."""
 
     email: EmailStr
-    password: str = Field(min_length=8)
+    password: str = Field(min_length=8, max_length=PASSWORD_MAX_LENGTH)
     name: str = Field(min_length=1)
     address: str = Field(min_length=1)
     activity_type: list[str] = Field(min_length=1)
@@ -33,7 +37,9 @@ class VendorRegistration(BaseModel):
 
 class Credentials(BaseModel):
     email: EmailStr
-    password: str
+    # No minimum — a wrong password of any length is the provider's answer to give,
+    # not ours — but a cap, so an oversized body never reaches it.
+    password: str = Field(max_length=PASSWORD_MAX_LENGTH)
 
 
 class CurrentUser(BaseModel):

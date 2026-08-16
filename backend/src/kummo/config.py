@@ -1,4 +1,6 @@
 from functools import lru_cache
+
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -19,6 +21,21 @@ class Settings(BaseSettings):
     app_base_url: str = "http://localhost:8000"
     # Session cookies are HttpOnly always; Secure only where there is TLS to require.
     cookie_secure: bool = False
+
+    @model_validator(mode="after")
+    def _require_secure_cookies_over_tls(self) -> "Settings":
+        """Refuse to serve session cookies unprotected over a TLS deployment.
+
+        The default is False so that plain-HTTP local development works, which means a
+        deployment that forgets COOKIE_SECURE would otherwise ship access and refresh
+        tokens in cleartext and say nothing. Failing at startup is the loud version.
+        """
+        if self.app_base_url.startswith("https://") and not self.cookie_secure:
+            raise ValueError(
+                "APP_BASE_URL is https, so COOKIE_SECURE must be true — "
+                "otherwise the session cookies are sent without the Secure flag."
+            )
+        return self
 
 
 @lru_cache

@@ -183,8 +183,8 @@
         return;
       }
 
+      // No vendor_id: the backend takes the owner from the session cookie.
       const body = {
-        vendor_id: currentVendor.id,
         title: document.getElementById('activity-title').value,
         description: document.getElementById('activity-description').value,
         price: parseFloat(document.getElementById('activity-price').value),

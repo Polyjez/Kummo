@@ -8,16 +8,29 @@ profile linking, status codes) without a network call.
 from uuid import UUID, uuid4
 
 import pytest
+from fastapi import HTTPException, Request
 
 from kummo.auth import cookies, routes, service
-from kummo.auth.dependencies import get_current_identity
+from kummo.auth.dependencies import (
+    get_current_client,
+    get_current_identity,
+    get_current_vendor,
+    get_optional_identity,
+)
 from kummo.auth.errors import (
+    AuthError,
     EmailAlreadyRegistered,
+    EmailConfirmationRequired,
     InvalidCredentials,
     OAuthExchangeFailed,
     SessionExpired,
+    WeakPassword,
 )
+from kummo.auth.profiles import Profile, split_full_name
 from kummo.auth.tokens import Identity
+
+# What `set_oauth_state` writes: the state and the PKCE verifier share one cookie.
+OAUTH_STATE_COOKIE_VALUE = "state-value.verifier-value"
 from kummo.clients import data_model as clients
 from kummo.main import app
 from kummo.vendors import data_model as vendors
@@ -60,8 +73,8 @@ def provider(monkeypatch):
                 raise self.raises
             return self.session
 
-        async def sign_out(self, access_token, refresh_token):
-            self.signed_out.append((access_token, refresh_token))
+        async def sign_out(self, refresh_token, access_token=""):
+            self.signed_out.append((refresh_token, access_token))
 
         async def exchange_code(self, code, verifier):
             if self.raises:
@@ -72,6 +85,7 @@ def provider(monkeypatch):
             return service.OAuthRedirect(
                 url=f"https://idp.test/authorize?provider={provider_name}",
                 code_verifier="verifier-value",
+                state="state-value",
             )
 
     fake = Provider()
@@ -273,10 +287,26 @@ async def test_logout_clears_cookies_and_revokes(client, stub_session, provider)
     response = await client.post("/api/auth/logout")
 
     assert response.status_code == 204
-    assert provider.signed_out == [("access-token-value", "refresh-token-value")]
+    assert provider.signed_out == [("refresh-token-value", "access-token-value")]
     cleared = response.headers.get_list("set-cookie")
     assert any(cookies.SESSION_COOKIE in header for header in cleared)
     assert any(cookies.REFRESH_COOKIE in header for header in cleared)
+
+
+async def test_logout_revokes_with_only_the_refresh_cookie(
+    client, stub_session, provider
+):
+    """The access cookie expires after an hour, the refresh cookie after thirty days.
+
+    Requiring both meant that logging out of a tab left open overnight cleared the
+    cookies while the session stayed alive at the provider.
+    """
+    client.cookies.set(cookies.REFRESH_COOKIE, "refresh-token-value")
+
+    response = await client.post("/api/auth/logout")
+
+    assert response.status_code == 204
+    assert provider.signed_out == [("refresh-token-value", "")]
 
 
 async def test_logout_without_a_session_still_succeeds(client, stub_session, provider):
@@ -302,6 +332,74 @@ async def test_refresh_with_expired_token_is_401(client, stub_session, provider)
     response = await client.post("/api/auth/refresh")
 
     assert response.status_code == 401
+
+
+def _expired_cookies(response) -> set[str]:
+    """The cookie names this response tells the browser to drop."""
+    return {
+        header.split("=", 1)[0]
+        for header in response.headers.get_list("set-cookie")
+        if "Max-Age=0" in header or "01 Jan 1970" in header
+    }
+
+
+async def test_refresh_returns_the_profile_and_rotates_the_cookies(
+    client, stub_session, provider
+):
+    client.cookies.set(cookies.REFRESH_COOKIE, "refresh-token-value")
+    stub_session.scalar_results = [
+        clients.Client(
+            id=uuid4(),
+            auth_user_id=provider.session.auth_user_id,
+            first_name="Anna",
+            last_name="Schmidt",
+            email="anna@example.de",
+        )
+    ]
+
+    response = await client.post("/api/auth/refresh")
+
+    assert response.status_code == 200
+    assert response.json()["role"] == "client"
+    issued = response.headers.get_list("set-cookie")
+    assert any(h.startswith(f"{cookies.SESSION_COOKIE}=") for h in issued)
+    assert any(h.startswith(f"{cookies.REFRESH_COOKIE}=") for h in issued)
+
+
+async def test_refresh_failure_actually_clears_the_cookies(
+    client, stub_session, provider
+):
+    """Regression: the clear used to be written to the injected `Response` and then
+    discarded, because raising discards it. The browser kept re-sending a token the
+    provider had already rejected."""
+    client.cookies.set(cookies.SESSION_COOKIE, "stale-access")
+    client.cookies.set(cookies.REFRESH_COOKIE, "stale-refresh")
+    provider.raises = SessionExpired("expired")
+
+    response = await client.post("/api/auth/refresh")
+
+    assert response.status_code == 401
+    assert _expired_cookies(response) == {
+        cookies.SESSION_COOKIE,
+        cookies.REFRESH_COOKIE,
+    }
+
+
+async def test_refresh_without_a_linked_profile_is_404_and_clears_cookies(
+    client, stub_session, provider
+):
+    """Rotation has already revoked the token the browser holds, so keeping it would
+    strand the session on a dead cookie."""
+    client.cookies.set(cookies.REFRESH_COOKIE, "refresh-token-value")
+    stub_session.scalar_results = []  # neither a client nor a vendor row
+
+    response = await client.post("/api/auth/refresh")
+
+    assert response.status_code == 404
+    assert _expired_cookies(response) == {
+        cookies.SESSION_COOKIE,
+        cookies.REFRESH_COOKIE,
+    }
 
 
 # --- /me ------------------------------------------------------------------------
@@ -352,6 +450,8 @@ async def test_oauth_start_redirects_and_stores_the_verifier(
         if h.startswith(f"{cookies.OAUTH_VERIFIER_COOKIE}=")
     )
     assert "HttpOnly" in verifier_cookie
+    # Both halves of the flow travel in the one cookie.
+    assert OAUTH_STATE_COOKIE_VALUE in verifier_cookie
 
 
 async def test_oauth_start_rejects_unknown_provider(client, stub_session, provider):
@@ -363,10 +463,12 @@ async def test_oauth_start_rejects_unknown_provider(client, stub_session, provid
 async def test_oauth_callback_creates_a_client_profile(client, stub_session, provider):
     provider.session = make_session(full_name="Anna Schmidt")
     stub_session.scalar_results = [None, None]
-    client.cookies.set(cookies.OAUTH_VERIFIER_COOKIE, "verifier-value")
+    client.cookies.set(cookies.OAUTH_VERIFIER_COOKIE, OAUTH_STATE_COOKIE_VALUE)
 
     response = await client.get(
-        "/api/auth/callback", params={"code": "abc"}, follow_redirects=False
+        "/api/auth/callback",
+        params={"code": "abc", "state": "state-value"},
+        follow_redirects=False,
     )
 
     assert response.status_code == 303
@@ -390,10 +492,12 @@ async def test_oauth_callback_sends_a_vendor_to_the_dashboard(
             activity_type=["kunst"],
         ),
     ]
-    client.cookies.set(cookies.OAUTH_VERIFIER_COOKIE, "verifier-value")
+    client.cookies.set(cookies.OAUTH_VERIFIER_COOKIE, OAUTH_STATE_COOKIE_VALUE)
 
     response = await client.get(
-        "/api/auth/callback", params={"code": "abc"}, follow_redirects=False
+        "/api/auth/callback",
+        params={"code": "abc", "state": "state-value"},
+        follow_redirects=False,
     )
 
     assert response.status_code == 303
@@ -405,6 +509,55 @@ async def test_oauth_callback_without_a_verifier_goes_back_to_login(
     client, stub_session, provider
 ):
     response = await client.get(
+        "/api/auth/callback",
+        params={"code": "abc", "state": "state-value"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert "error=oauth" in response.headers["location"]
+
+
+async def test_oauth_callback_with_a_mismatched_state_goes_back_to_login(
+    client, stub_session, provider
+):
+    """The state proves the callback belongs to the flow this browser started."""
+    client.cookies.set(cookies.OAUTH_VERIFIER_COOKIE, OAUTH_STATE_COOKIE_VALUE)
+
+    response = await client.get(
+        "/api/auth/callback",
+        params={"code": "abc", "state": "not-the-state-we-issued"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert "error=oauth" in response.headers["location"]
+    assert stub_session.added == []
+
+
+async def test_oauth_callback_with_a_non_ascii_state_goes_back_to_login(
+    client, stub_session, provider
+):
+    """The query string is caller-controlled and `compare_digest` refuses non-ASCII
+    str, so this has to be a redirect rather than a 500."""
+    client.cookies.set(cookies.OAUTH_VERIFIER_COOKIE, OAUTH_STATE_COOKIE_VALUE)
+
+    response = await client.get(
+        "/api/auth/callback",
+        params={"code": "abc", "state": "stäte-välue"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert "error=oauth" in response.headers["location"]
+
+
+async def test_oauth_callback_without_a_state_goes_back_to_login(
+    client, stub_session, provider
+):
+    client.cookies.set(cookies.OAUTH_VERIFIER_COOKIE, OAUTH_STATE_COOKIE_VALUE)
+
+    response = await client.get(
         "/api/auth/callback", params={"code": "abc"}, follow_redirects=False
     )
 
@@ -412,14 +565,50 @@ async def test_oauth_callback_without_a_verifier_goes_back_to_login(
     assert "error=oauth" in response.headers["location"]
 
 
+async def test_oauth_callback_when_the_user_declines_goes_back_to_login(
+    client, stub_session, provider
+):
+    """Consent denied: the provider sends `error` instead of a code."""
+    client.cookies.set(cookies.OAUTH_VERIFIER_COOKIE, OAUTH_STATE_COOKIE_VALUE)
+
+    response = await client.get(
+        "/api/auth/callback",
+        params={"error": "access_denied", "error_description": "User declined"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert "error=oauth" in response.headers["location"]
+
+
+async def test_oauth_callback_clears_the_state_cookie(client, stub_session, provider):
+    stub_session.scalar_results = [None, None]
+    client.cookies.set(cookies.OAUTH_VERIFIER_COOKIE, OAUTH_STATE_COOKIE_VALUE)
+
+    response = await client.get(
+        "/api/auth/callback",
+        params={"code": "abc", "state": "state-value"},
+        follow_redirects=False,
+    )
+
+    cleared = response.headers.get_list("set-cookie")
+    assert any(
+        h.startswith(f"{cookies.OAUTH_VERIFIER_COOKIE}=")
+        and ("Max-Age=0" in h or "01 Jan 1970" in h)
+        for h in cleared
+    )
+
+
 async def test_oauth_callback_with_a_failed_exchange_goes_back_to_login(
     client, stub_session, provider
 ):
     provider.raises = OAuthExchangeFailed("bad code")
-    client.cookies.set(cookies.OAUTH_VERIFIER_COOKIE, "verifier-value")
+    client.cookies.set(cookies.OAUTH_VERIFIER_COOKIE, OAUTH_STATE_COOKIE_VALUE)
 
     response = await client.get(
-        "/api/auth/callback", params={"code": "abc"}, follow_redirects=False
+        "/api/auth/callback",
+        params={"code": "abc", "state": "state-value"},
+        follow_redirects=False,
     )
 
     assert response.status_code == 303
@@ -430,3 +619,144 @@ def test_uuid_round_trip_of_identity():
     identity = Identity(auth_user_id=UUID(int=1), email="a@b.de")
 
     assert identity.auth_user_id == UUID(int=1)
+
+
+# --- Profile guards ---------------------------------------------------------------
+
+
+async def test_me_without_a_linked_profile_is_404(client, stub_session):
+    """Authenticated but unlinked: the identity exists, the profile row does not."""
+    app.dependency_overrides[get_current_identity] = lambda: Identity(
+        auth_user_id=uuid4(), email="anna@example.de"
+    )
+    try:
+        response = await client.get("/api/auth/me")
+    finally:
+        app.dependency_overrides.pop(get_current_identity, None)
+
+    assert response.status_code == 404
+
+
+async def test_a_client_is_refused_by_the_vendor_guard(stub_session):
+    profile = Profile(
+        role="client", id=uuid4(), email="anna@example.de", display_name="Anna"
+    )
+
+    with pytest.raises(HTTPException) as raised:
+        await get_current_vendor(profile)
+
+    assert raised.value.status_code == 403
+
+
+async def test_a_vendor_is_refused_by_the_client_guard(stub_session):
+    profile = Profile(
+        role="vendor", id=uuid4(), email="info@werkstatt.de", display_name="Werkstatt"
+    )
+
+    with pytest.raises(HTTPException) as raised:
+        await get_current_client(profile)
+
+    assert raised.value.status_code == 403
+
+
+async def test_each_guard_passes_its_own_role_through(stub_session):
+    client_profile = Profile(
+        role="client", id=uuid4(), email="anna@example.de", display_name="Anna"
+    )
+    vendor_profile = Profile(
+        role="vendor", id=uuid4(), email="info@werkstatt.de", display_name="Werkstatt"
+    )
+
+    assert await get_current_client(client_profile) is client_profile
+    assert await get_current_vendor(vendor_profile) is vendor_profile
+
+
+async def test_optional_identity_is_none_for_an_anonymous_caller():
+    """Unused by any route today, so it needs a test of its own to stay honest."""
+    request = Request({"type": "http", "headers": [], "method": "GET", "path": "/"})
+
+    assert await get_optional_identity(request) is None
+
+
+# --- Provider error mapping -------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("error", "expected_status"),
+    [
+        (WeakPassword("too weak"), 400),
+        (EmailConfirmationRequired("confirm first"), 400),
+        (AuthError("something we do not map"), 502),
+    ],
+)
+async def test_registration_maps_provider_errors(
+    client, stub_session, provider, error, expected_status
+):
+    provider.raises = error
+
+    response = await client.post(
+        "/api/auth/register/client",
+        json={
+            "email": "anna@example.de",
+            "password": "geheim1234",
+            "first_name": "Anna",
+            "last_name": "Schmidt",
+        },
+    )
+
+    assert response.status_code == expected_status
+
+
+async def test_an_unavailable_provider_does_not_leak_its_message(
+    client, stub_session, provider
+):
+    provider.raises = AuthError("connect timeout to db.supabase.co:5432")
+
+    response = await client.post(
+        "/api/auth/login", json={"email": "anna@example.de", "password": "geheim1234"}
+    )
+
+    assert response.status_code == 502
+    assert "supabase" not in response.text.lower()
+
+
+# --- Cookie attributes ------------------------------------------------------------
+
+
+async def test_session_cookies_carry_the_hardening_attributes(
+    client, stub_session, provider
+):
+    response = await client.post(
+        "/api/auth/login", json={"email": "anna@example.de", "password": "geheim1234"}
+    )
+
+    issued = {
+        header.split("=", 1)[0]: header
+        for header in response.headers.get_list("set-cookie")
+    }
+    for name in (cookies.SESSION_COOKIE, cookies.REFRESH_COOKIE):
+        assert "HttpOnly" in issued[name]
+        assert "SameSite=lax" in issued[name]
+        assert "Path=/" in issued[name]
+
+    # The access cookie tracks the token's own lifetime; the refresh cookie outlives it.
+    assert f"Max-Age={provider.session.expires_in}" in issued[cookies.SESSION_COOKIE]
+    assert f"Max-Age={cookies.REFRESH_MAX_AGE}" in issued[cookies.REFRESH_COOKIE]
+
+
+# --- split_full_name --------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    ("full_name", "email", "expected"),
+    [
+        ("Anna Schmidt", "anna@example.de", ("Anna", "Schmidt")),
+        ("Anna Maria Schmidt", "anna@example.de", ("Anna Maria", "Schmidt")),
+        ("Anna", "anna@example.de", ("Anna", "")),
+        ("  ", "anna@example.de", ("anna", "")),
+        (None, "anna@example.de", ("anna", "")),
+        (None, "@example.de", ("Unbekannt", "")),
+    ],
+)
+def test_split_full_name(full_name, email, expected):
+    assert split_full_name(full_name, email) == expected

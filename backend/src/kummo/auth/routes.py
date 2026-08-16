@@ -6,9 +6,10 @@ not a token, not a provider error code.
 """
 
 import logging
+import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
-from fastapi.responses import RedirectResponse
+from fastapi.responses import JSONResponse, RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..config import Settings, get_settings
@@ -21,7 +22,6 @@ from .errors import (
     EmailAlreadyRegistered,
     EmailConfirmationRequired,
     InvalidCredentials,
-    OAuthExchangeFailed,
     SessionExpired,
     WeakPassword,
 )
@@ -64,6 +64,29 @@ def _http_error(error: AuthError) -> HTTPException:
     if isinstance(error, SessionExpired):
         return HTTPException(status_code=401, detail=str(error))
     return HTTPException(status_code=502, detail="The identity provider is unavailable")
+
+
+def _log_safe(value: str | None, limit: int = 80) -> str:
+    """Make provider-supplied text safe to put in a log line.
+
+    Anything arriving on the query string is attacker-controlled; a newline in it
+    would let a caller forge whole entries in a plaintext log sink.
+    """
+    if not value:
+        return "none"
+    collapsed = " ".join(value.split())
+    return collapsed[:limit] if len(collapsed) <= limit else f"{collapsed[:limit]}..."
+
+
+def _failed_response(error: AuthError) -> JSONResponse:
+    """The same mapping as `_http_error`, but as a response we can attach cookies to.
+
+    Headers written to the injected `Response` are only merged into the reply when the
+    handler *returns*; raising discards them, because the exception handler builds a
+    fresh response. So any path that has to both fail and clear cookies must return.
+    """
+    http_error = _http_error(error)
+    return JSONResponse({"detail": http_error.detail}, status_code=http_error.status_code)
 
 
 @router.post("/register/client", response_model=CurrentUser, status_code=201)
@@ -136,13 +159,17 @@ async def login(
 
 @router.post("/logout", status_code=204)
 async def logout(request: Request) -> Response:
-    access_token = cookies.read_access_token(request)
+    # The refresh token alone is enough to revoke, and it is the half that is still
+    # there: the access cookie lasts an hour, the refresh cookie thirty days. Waiting
+    # for both meant the common case — logging out of a tab left open overnight —
+    # cleared the cookies while the session stayed alive at the provider.
     refresh_token = cookies.read_refresh_token(request)
-    if access_token and refresh_token:
-        await service.sign_out(access_token, refresh_token)
+    if refresh_token:
+        await service.sign_out(refresh_token, cookies.read_access_token(request))
 
     response = Response(status_code=204)
     cookies.clear_session_cookies(response)
+    cookies.clear_oauth_state(response)
     return response
 
 
@@ -151,7 +178,7 @@ async def refresh(
     request: Request,
     response: Response,
     db: AsyncSession = Depends(get_session),
-) -> CurrentUser:
+) -> CurrentUser | Response:
     refresh_token = cookies.read_refresh_token(request)
     if not refresh_token:
         raise HTTPException(status_code=401, detail="Not authenticated")
@@ -159,12 +186,21 @@ async def refresh(
     try:
         auth_session = await service.refresh(refresh_token)
     except AuthError as error:
-        cookies.clear_session_cookies(response)
-        raise _http_error(error) from error
+        # Returned, not raised, so the cookie clearing survives — otherwise the browser
+        # keeps a token the provider has already rejected and re-sends it every time.
+        failed = _failed_response(error)
+        cookies.clear_session_cookies(failed)
+        return failed
 
     profile = await find_profile(db, auth_session.auth_user_id)
     if profile is None:
-        raise HTTPException(status_code=404, detail="No profile linked to this account")
+        # The refresh succeeded, so rotation has already revoked the token the browser
+        # holds. Leaving it in place would strand the session on a dead cookie.
+        failed = JSONResponse(
+            {"detail": "No profile linked to this account"}, status_code=404
+        )
+        cookies.clear_session_cookies(failed)
+        return failed
 
     cookies.set_session_cookies(response, auth_session)
     return _as_current_user(profile)
@@ -192,7 +228,7 @@ async def start_oauth(
         provider, f"{settings.app_base_url.rstrip('/')}/api/auth/callback"
     )
     response = RedirectResponse(redirect.url, status_code=307)
-    cookies.set_oauth_state(response, redirect.code_verifier)
+    cookies.set_oauth_state(response, redirect.code_verifier, redirect.state)
     return response
 
 
@@ -200,25 +236,46 @@ async def start_oauth(
 async def oauth_callback(
     request: Request,
     code: str | None = None,
+    state: str | None = None,
+    error: str | None = None,
     error_description: str | None = None,
     db: AsyncSession = Depends(get_session),
     settings: Settings = Depends(get_settings),
 ) -> RedirectResponse:
     base = settings.app_base_url.rstrip("/")
-    verifier = cookies.read_oauth_verifier(request)
+    expected_state, verifier = cookies.read_oauth_state(request)
 
-    if code is None or not verifier:
-        logger.info("OAuth callback without a usable code (%s)", error_description)
+    def back_to_login() -> RedirectResponse:
         failed = RedirectResponse(f"{base}/login.html?error=oauth", status_code=303)
         cookies.clear_oauth_state(failed)
         return failed
+
+    if code is None or not verifier:
+        # The provider's text is attacker-controlled, so it is summarised, never
+        # interpolated: a newline in it would forge entries in a plaintext log.
+        logger.info(
+            "OAuth callback without a usable code (provider error: %s)",
+            _log_safe(error or error_description),
+        )
+        return back_to_login()
+
+    # PKCE already stops the code being redeemed anywhere but the browser holding the
+    # verifier; `state` is what proves this callback belongs to the flow we started.
+    # Compared as bytes: `compare_digest` refuses non-ASCII str, and the query string
+    # is caller-controlled, so a stray umlaut would otherwise be a 500.
+    if not state or not secrets.compare_digest(
+        state.encode("utf-8"), expected_state.encode("utf-8")
+    ):
+        logger.warning("OAuth callback with a mismatched state; discarding the flow")
+        return back_to_login()
 
     try:
         auth_session = await service.exchange_code(code, verifier)
-    except OAuthExchangeFailed:
-        failed = RedirectResponse(f"{base}/login.html?error=oauth", status_code=303)
-        cookies.clear_oauth_state(failed)
-        return failed
+    except AuthError as exchange_error:
+        # OAuthExchangeFailed plus the provider-unavailable case: from the browser's
+        # point of view both are the same dead end.
+        logger.warning("OAuth code exchange failed: %s", exchange_error)
+        return back_to_login()
 
     profile = await find_profile(db, auth_session.auth_user_id)
     if profile is None:

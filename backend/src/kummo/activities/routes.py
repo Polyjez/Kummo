@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from ..auth.dependencies import get_current_vendor
+from ..auth.profiles import Profile
 from ..db import get_session
 from . import data_model
 from .api_model import Activity, ActivityCreate
@@ -29,9 +31,15 @@ async def list_activities(
 @router.post("/activities", response_model=Activity, status_code=201)
 async def create_activity(
     body: ActivityCreate,
+    vendor: Profile = Depends(get_current_vendor),
     session: AsyncSession = Depends(get_session),
 ) -> Activity:
-    activity = data_model.Activity(**body.model_dump())
+    """Create an activity for the signed-in vendor.
+
+    The owner is taken from the session rather than the body, so the route cannot be
+    used to file an activity under another vendor.
+    """
+    activity = data_model.Activity(**body.model_dump(), vendor_id=vendor.id)
     session.add(activity)
     await session.commit()
     await session.refresh(activity)

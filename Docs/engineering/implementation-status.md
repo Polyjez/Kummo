@@ -42,8 +42,14 @@ outermost-first (`routes` → `dependencies` → `profiles` → `cookies` → `t
   `GET /api/auth/me`, `GET /api/auth/oauth/{provider}`, `GET /api/auth/callback`.
 - Session transport is two HttpOnly cookies (`kummo_session`, `kummo_refresh`). No token ever
   reaches page JS.
-- Google OAuth uses PKCE, verifier in a short-lived HttpOnly cookie. **OAuth signup always
-  creates a client** — a vendor needs an address and activity types a Google profile cannot supply.
+- Google OAuth uses PKCE plus a `state` value; both travel in one short-lived HttpOnly cookie
+  (`kummo_oauth_verifier`, as `state.verifier`) because the authorize request and the callback are
+  separate HTTP requests. **OAuth signup always creates a client** — a vendor needs an address and
+  activity types a Google profile cannot supply.
+- Access tokens are checked for issuer and audience in `tokens.py`; the provider client validates
+  only `exp`.
+- `POST /api/activities` is the one write route and is guarded by `get_current_vendor`; the owning
+  `vendor_id` comes from the session, never the request body.
 - Role routing: `client.html` and `vendor.html` are the two role homes, each guarded by
   `KummoAuth.requireUser(role)`.
 - Registration is deliberately **not atomic** (identity over HTTP, profile row in a local
@@ -52,6 +58,27 @@ outermost-first (`routes` → `dependencies` → `profiles` → `cookies` → `t
   for the surrounding migration model.
 
 Covers FR-01, FR-05, and the [authentication flow](sequence-diagrams/00-authentication.md).
+
+**Known auth gaps**, recorded here rather than built — each needs a decision, not just code:
+
+- **No rate limiting** on `/login`, `/register/*` or `/refresh`. The provider's own limits are
+  per-IP, but it only ever sees *this backend's* IP, so they act as one global cap shared by every
+  user: no per-attacker brute-force protection, and one attacker can lock out everybody's sign-in.
+  Needs a deployment decision (reverse proxy vs. app-level vs. shared store).
+- **Registration discloses whether an address exists** (409 on a duplicate), which `auth.js`
+  surfaces in German. A deliberate UX trade-off.
+- **An interrupted vendor registration completes as a *client*.** Nothing records the intended
+  role, so `ensure_client_profile` on the next sign-in is a guess. Rare now that the insert race is
+  handled, but fixing it properly needs a pending-registration record.
+- **Every authenticated request costs a provider round trip.** Tokens are HS256, and for symmetric
+  keys the client verifies by calling the provider rather than locally. Asymmetric signing keys
+  would make it local; that is a change to both the local and hosted projects.
+- **Refresh cookies last 30 days** with no absolute session cap and no "sign out everywhere";
+  `sign_out` is `scope="local"` by design.
+- **No security headers** — no CSP, HSTS or `TrustedHostMiddleware` in `main.py`. HttpOnly stops
+  token theft via XSS but not same-origin requests from injected script.
+- **The provider is visible during OAuth**: the browser is redirected to the Supabase authorize
+  URL, so the "nothing names the provider" property holds for the API surface but not that hop.
 
 **Persisted schema** — three tables in the `kummo` schema, owned by
 `supabase/migrations/` and guarded by

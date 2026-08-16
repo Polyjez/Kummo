@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from uuid import UUID
 
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from ..clients import data_model as clients
@@ -57,6 +58,31 @@ def split_full_name(full_name: str | None, fallback_email: str) -> tuple[str, st
     return fallback_email.split("@")[0] or "Unbekannt", ""
 
 
+async def _insert_profile(
+    session: AsyncSession, row, auth_user_id: UUID, as_profile
+) -> Profile:
+    """Insert a profile row, tolerating a concurrent insert of the same identity.
+
+    `auth_user_id` is unique, so two requests racing through the `find_profile` check
+    above would otherwise turn the loser into an unhandled 500. Losing the race means
+    the profile now exists, which is exactly what the caller asked for.
+    """
+    session.add(row)
+    try:
+        await session.commit()
+    except IntegrityError:
+        await session.rollback()
+        existing = await find_profile(session, auth_user_id)
+        if existing is None:
+            raise
+        logger.info("Profile for auth user %s was created concurrently", auth_user_id)
+        return existing
+
+    await session.refresh(row)
+    logger.info("Created profile for auth user %s", auth_user_id)
+    return as_profile(row)
+
+
 async def find_profile(session: AsyncSession, auth_user_id: UUID) -> Profile | None:
     client_row = await session.scalar(
         select(clients.Client).where(clients.Client.auth_user_id == auth_user_id)
@@ -89,11 +115,9 @@ async def ensure_client_profile(
         last_name=last_name,
         email=identity.email,
     )
-    session.add(row)
-    await session.commit()
-    await session.refresh(row)
-    logger.info("Created client profile for auth user %s", identity.auth_user_id)
-    return _as_client_profile(row)
+    return await _insert_profile(
+        session, row, identity.auth_user_id, _as_client_profile
+    )
 
 
 async def ensure_vendor_profile(
@@ -118,8 +142,6 @@ async def ensure_vendor_profile(
         phone=phone,
         website=website,
     )
-    session.add(row)
-    await session.commit()
-    await session.refresh(row)
-    logger.info("Created vendor profile for auth user %s", identity.auth_user_id)
-    return _as_vendor_profile(row)
+    return await _insert_profile(
+        session, row, identity.auth_user_id, _as_vendor_profile
+    )

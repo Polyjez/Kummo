@@ -18,7 +18,9 @@ class Activity(BaseModel):
 
 
 class ActivityCreate(BaseModel):
-    vendor_id: UUID
+    """What a vendor may set. `vendor_id` is deliberately absent: it comes from the
+    session, so an activity cannot be filed under somebody else's business."""
+
     title: str
     description: str | None = None
     price: float | None = None
