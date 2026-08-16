@@ -24,7 +24,7 @@ NO_REQUEST = "-"
 
 _request_id: ContextVar[str] = ContextVar("request_id", default=NO_REQUEST)
 
-FORMAT = "%(levelname)-8s %(asctime)s [%(request_id)s] %(name)s: %(message)s"
+FORMAT = "%(levelname)-8s %(asctime)s [%(request_id)s] (%(name)s) : %(message)s"
 TIME_FORMAT = "%H:%M:%S"
 
 # An inbound X-Request-ID is caller-supplied, so it is only reused if it looks like an
