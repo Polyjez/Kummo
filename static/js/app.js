@@ -1,0 +1,574 @@
+// Kummo — drives every page. Data is loaded from the FastAPI backend (/api/*).
+// Field names mirror the Supabase columns (title, price, name, address,
+// activity_type, age_group, participants_max, duration, picture, vendor_id, ...).
+// UI strings stay in German. Note: there is no `disponibilites`/availability
+// column in the schema, so that data is guarded as optional.
+let vendors = [];
+let activities = [];
+
+// localStorage keys (preferences, bookings, favorites)
+const STORAGE_PREFS = 'kummo_prefs';
+const STORAGE_BOOKINGS = 'kummo_bookings';
+const STORAGE_FAVORITES = 'kummo_favorites';
+
+function initApp() {
+  loadData();
+}
+
+// =============================================
+// 1. Load data from the API
+// =============================================
+async function loadData() {
+  try {
+    const [vendorsRes, activitiesRes] = await Promise.all([
+      fetch('/api/vendors'),
+      fetch('/api/activities'),
+    ]);
+    if (!vendorsRes.ok) throw new Error(`vendors: ${vendorsRes.status}`);
+    if (!activitiesRes.ok) throw new Error(`activities: ${activitiesRes.status}`);
+    vendors = await vendorsRes.json();
+    activities = await activitiesRes.json();
+    initPage();
+  } catch (error) {
+    console.error('Error while loading data:', error);
+    showLoadError();
+  }
+}
+
+function showLoadError() {
+  const msg = '<p class="empty-state" style="color:#DC562E">Aktivitäten konnten nicht geladen werden.</p>';
+  const el =
+    document.getElementById('featured-activities') ||
+    document.getElementById('search-results') ||
+    document.getElementById('activity-detail');
+  if (el) el.innerHTML = msg;
+}
+
+// =============================================
+// 2. Initialize the page based on the URL
+// =============================================
+function initPage() {
+  const path = window.location.pathname;
+
+  if (path.includes('activity.html')) {
+    showActivityDetail();
+    return;
+  }
+  if (path.includes('client.html')) {
+    initClientPage();
+    return;
+  }
+  if (path.includes('vendor.html')) {
+    // Do nothing here: vendor.html runs its own code
+    return;
+  }
+  if (path.includes('admin.html')) {
+    initAdminDashboard();
+    return;
+  }
+  if (path.includes('search.html')) {
+    initSearchPage();
+    return;
+  }
+  if (path.includes('index.html') || path.endsWith('/')) {
+    showActivityList('featured-activities', activities.slice(0, 6));
+    initHomeSearch();
+  }
+}
+
+// =============================================
+// 3. Enrich an activity with its vendor data
+// =============================================
+function enrichActivity(activity) {
+  const vendor = vendors.find((s) => s.id === activity.vendor_id);
+  return {
+    ...activity,
+    address: vendor ? vendor.address : 'Adresse unbekannt',
+    vendorName: vendor ? vendor.name : 'Anbieter unbekannt',
+    picture: activity.picture || (vendor ? vendor.picture : 'https://via.placeholder.com/400x250'),
+    vendor,
+  };
+}
+
+// =============================================
+// 4. Build the HTML for an activity card
+// =============================================
+function activityCardHtml(activity) {
+  const a = enrichActivity(activity);
+  return `
+    <article class="activity-card">
+      <img src="${a.picture}" alt="${a.title}" loading="lazy">
+      <div class="activity-card-body">
+        <div class="activity-meta">
+          <span class="tag">${a.vendorName}</span>
+          <span class="tag tag-age">${a.age_group}</span>
+        </div>
+        <h3>${a.title}</h3>
+        <p>📍 ${a.address}</p>
+        <p>💰 ${a.price} € · 👥 ${a.participants_max} · ⏳ ${a.duration}</p>
+        <a class="btn btn-primary btn-sm stretched-link" href="activity.html?id=${a.id}">Details & Buchen</a>
+      </div>
+    </article>`;
+}
+
+// =============================================
+// 5. Render a grid of activities
+// =============================================
+function renderActivityGrid(containerId, list) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+
+  if (!list.length) {
+    container.innerHTML = '<p class="empty-state">Keine Aktivitäten gefunden.</p>';
+    return;
+  }
+  container.innerHTML = list.map(activityCardHtml).join('');
+}
+
+function showActivityList(containerId, list) {
+  renderActivityGrid(containerId, list);
+}
+
+// =============================================
+// 6. Filter activities
+// =============================================
+function filterActivities(filters) {
+  return activities.filter((activity) => {
+    const enriched = enrichActivity(activity);
+    const q = (filters.q || '').toLowerCase().trim();
+
+    if (q) {
+      const haystack = `${activity.title} ${activity.description} ${enriched.vendorName}`.toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
+
+    if (filters.age && filters.age !== 'all') {
+      const age = activity.age_group.toLowerCase();
+      if (filters.age === '0-5' && !age.includes('3') && !age.includes('5') && !age.includes('0')) return false;
+      if (filters.age === '6-12' && !age.includes('6') && !age.includes('12')) return false;
+      if (filters.age === '13-18' && !age.includes('18') && !age.includes('13')) return false;
+      if (filters.age === 'senioren' && !age.includes('senior')) return false;
+    }
+
+    if (filters.maxPrice && activity.price > Number(filters.maxPrice)) return false;
+
+    if (filters.category && filters.category !== 'all') {
+      const offering = (enriched.vendor?.activity_type || []).join(' ').toLowerCase();
+      const text = `${activity.title} ${activity.description}`.toLowerCase();
+      const cat = filters.category;
+      if (cat === 'kunst' && !/mal|töpf|illustr|van gogh|impression|druck|kunst|diy/.test(text) && !offering.includes('kunst')) return false;
+      if (cat === 'natur' && !/natur|tier|park|steine|dino/.test(text) && !offering.includes('natur')) return false;
+      if (cat === 'wissenschaft' && !/wissenschaft|experiment|museum|forscher|steine|dino/.test(text) && !offering.includes('wissenschaft')) return false;
+      if (cat === 'geburtstagsfeier' && !offering.includes('geburtstag')) return false;
+      if (cat === 'feriencamp' && !offering.includes('camp') && !offering.includes('ferien')) return false;
+      if (cat === 'sport' && !/sport|fußball|yoga|bewegung/.test(text)) return false;
+    }
+
+    return true;
+  });
+}
+
+// =============================================
+// 7. Search and filter handling
+// =============================================
+function readFiltersFromForm(form) {
+  const fd = new FormData(form);
+  return {
+    q: fd.get('q') || '',
+    age: fd.get('age') || 'all',
+    category: fd.get('category') || 'all',
+    maxPrice: fd.get('maxPrice') || '',
+  };
+}
+
+function buildSearchUrl(filters) {
+  const params = new URLSearchParams();
+  Object.entries(filters).forEach(([k, v]) => {
+    if (v && v !== 'all') params.set(k, v);
+  });
+  const qs = params.toString();
+  return `search.html${qs ? `?${qs}` : ''}`;
+}
+
+function initHomeSearch() {
+  const form = document.getElementById('home-search');
+  if (!form) return;
+  form.addEventListener('submit', (e) => {
+    e.preventDefault();
+    window.location.href = buildSearchUrl(readFiltersFromForm(form));
+  });
+}
+
+function initSearchPage() {
+  const params = new URLSearchParams(window.location.search);
+  const filters = {
+    q: params.get('q') || '',
+    category: params.get('category') || 'all',
+    age: params.get('age') || 'all',
+    maxPrice: params.get('maxPrice') || '',
+  };
+
+  const form = document.getElementById('filter-form');
+  if (form) {
+    if (filters.q) form.querySelector('[name="q"]').value = filters.q;
+    if (filters.category) form.querySelector('[name="category"]').value = filters.category;
+    if (filters.age) form.querySelector('[name="age"]').value = filters.age;
+    if (filters.maxPrice) form.querySelector('[name="maxPrice"]').value = filters.maxPrice;
+
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const f = readFiltersFromForm(form);
+      renderActivityGrid('search-results', filterActivities(f));
+      updateMapHint(filterActivities(f).length);
+    });
+  }
+
+  const results = filterActivities(filters);
+  renderActivityGrid('search-results', results);
+  updateMapHint(results.length);
+}
+
+function updateMapHint(count) {
+  const map = document.getElementById('map-hint');
+  if (map) map.textContent = `🗺️ ${count} Aktivitäten in Berlin — Google Maps beim Go-Live einbinden`;
+}
+
+// =============================================
+// 8. Activity detail view
+// =============================================
+function showActivityDetail() {
+  const params = new URLSearchParams(window.location.search);
+  const activityId = params.get('id');
+  const container = document.getElementById('activity-detail');
+
+  if (!activityId || !container) {
+    if (container) container.innerHTML = '<p class="empty-state">Aktivität nicht gefunden.</p>';
+    return;
+  }
+
+  const activity = activities.find((a) => a.id === activityId);
+  if (!activity) {
+    container.innerHTML = '<p class="empty-state">Aktivität nicht gefunden. <a href="search.html">Zurück zur Suche</a></p>';
+    return;
+  }
+
+  const a = enrichActivity(activity);
+  document.title = `${a.title} — Kummo`;
+
+  container.innerHTML = `
+    <div class="detail-hero">
+      <img class="gallery-main" src="${a.picture}" alt="${a.title}">
+      <div class="detail-info">
+        <div class="activity-meta">
+          <span class="tag">${a.vendorName}</span>
+          <span class="tag tag-age">${a.age_group}</span>
+        </div>
+        <h1>${a.title}</h1>
+        <p class="rating">⭐ ${a.rating || 'Noch nicht bewertet'}</p>
+        <p class="price-large">${a.price} € <span style="font-size:1rem;font-weight:600">pro Person</span></p>
+        <p>📍 ${a.address}</p>
+        <p>👥 Max. ${a.participants_max} Teilnehmer · ⏳ ${a.duration}</p>
+        <p>${a.description}</p>
+        <div style="margin-top:1.5rem">
+          <h3>Verfügbare Termine</h3>
+          <div class="disponibilites">
+            ${(a.disponibilites || []).map((d) => `<span class="tag">${d}</span>`).join('')}
+          </div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.75rem;margin-top:1.5rem">
+          <button type="button" class="btn btn-primary" id="open-booking">Jetzt buchen</button>
+          <button type="button" class="btn btn-outline" id="toggle-fav">${getFavorites().includes(a.id) ? '★ Favorit' : '☆ Merken'}</button>
+        </div>
+      </div>
+    </div>
+    <div class="map-panel">
+      <div class="map-placeholder">Karte: ${a.address}</div>
+    </div>
+    <section class="section">
+      <h2>Das könnte euch auch gefallen</h2>
+      <div class="activity-grid" id="similar-activities"></div>
+    </section>`;
+
+  const similar = activities
+    .filter((x) => x.id !== activity.id && x.vendor_id === activity.vendor_id)
+    .slice(0, 3);
+  renderActivityGrid('similar-activities', similar.length ? similar : activities.filter((x) => x.id !== activity.id).slice(0, 3));
+
+  document.getElementById('open-booking')?.addEventListener('click', () => openBookingModal(a));
+  document.getElementById('toggle-fav')?.addEventListener('click', (e) => {
+    toggleFavorite(a.id);
+    e.target.textContent = getFavorites().includes(a.id) ? '★ Favorit' : '☆ Merken';
+  });
+}
+
+// =============================================
+// 9. Booking modal
+// =============================================
+function openBookingModal(activity) {
+  let overlay = document.getElementById('booking-modal');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'booking-modal';
+    overlay.className = 'modal-overlay';
+    document.body.appendChild(overlay);
+    overlay.addEventListener('click', (e) => {
+      if (e.target === overlay) overlay.classList.remove('open');
+    });
+  }
+
+  const slots = (activity.disponibilites || [])
+    .map((s) => `<option value="${s}">${s}</option>`)
+    .join('');
+
+  overlay.innerHTML = `
+    <div class="modal" role="dialog" aria-labelledby="booking-title">
+      <h2 id="booking-title">Buchung: ${activity.title}</h2>
+      <form id="booking-form">
+        <div class="form-row"><label for="b-name">Name</label><input id="b-name" name="name" required autocomplete="name"></div>
+        <div class="form-row"><label for="b-email">E-Mail</label><input id="b-email" name="email" type="email" required autocomplete="email"></div>
+        <div class="form-row"><label for="b-slot">Termin</label><select id="b-slot" name="slot" required>${slots}</select></div>
+        <div class="form-row"><label for="b-qty">Personen</label><input id="b-qty" name="qty" type="number" min="1" max="${activity.participants_max}" value="2" required></div>
+        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:0.5rem">Buchen (${activity.price} € / Person)</button>
+        <button type="button" class="btn btn-outline" style="width:100%;margin-top:0.5rem" data-close>Abbrechen</button>
+      </form>
+    </div>`;
+
+  overlay.classList.add('open');
+  overlay.querySelector('[data-close]').addEventListener('click', () => overlay.classList.remove('open'));
+  overlay.querySelector('#booking-form').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    const qty = Number(fd.get('qty'));
+    addBooking({
+      activityId: activity.id,
+      activityName: activity.title,
+      name: fd.get('name'),
+      email: fd.get('email'),
+      slot: fd.get('slot'),
+      qty,
+      total: activity.price * qty,
+      status: 'bestätigt',
+      date: new Date().toISOString(),
+    });
+    overlay.classList.remove('open');
+    alert(`Danke, ${fd.get('name')}! Ihre Buchung ist bestätigt.`);
+  });
+}
+
+// =============================================
+// 10. Preferences, bookings and favorites
+// =============================================
+function getPrefs() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_PREFS) || '{}');
+  } catch {
+    return {};
+  }
+}
+
+function savePrefs(prefs) {
+  localStorage.setItem(STORAGE_PREFS, JSON.stringify(prefs));
+}
+
+function getBookings() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_BOOKINGS) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function addBooking(booking) {
+  const list = getBookings();
+  list.unshift(booking);
+  localStorage.setItem(STORAGE_BOOKINGS, JSON.stringify(list));
+}
+
+function getFavorites() {
+  try {
+    return JSON.parse(localStorage.getItem(STORAGE_FAVORITES) || '[]');
+  } catch {
+    return [];
+  }
+}
+
+function toggleFavorite(id) {
+  let favs = getFavorites();
+  favs = favs.includes(id) ? favs.filter((x) => x !== id) : [...favs, id];
+  localStorage.setItem(STORAGE_FAVORITES, JSON.stringify(favs));
+  return favs;
+}
+
+// =============================================
+// 11. Page-specific initializers
+// =============================================
+// Name and email come from the account, not from the preferences blob: the account
+// is authoritative and the user cannot edit them here. The rest stays local.
+function applyAccountToClientForm(form, user) {
+  form.name.value = user.display_name;
+  form.email.value = user.email;
+  form.name.readOnly = true;
+  form.email.readOnly = true;
+}
+
+// This page is for clients only — a vendor is sent to its dashboard by the guard,
+// which also drops any locally cached data belonging to a previous account. Nothing
+// is rendered before it resolves, so no stale profile is ever shown.
+async function initClientPage() {
+  const user = await globalThis.KummoAuth?.requireUser('client');
+  if (!user) return;
+
+  const form = document.getElementById('prefs-form');
+  const prefs = getPrefs();
+  if (form) {
+    applyAccountToClientForm(form, user);
+    if (prefs.age) form.age.value = prefs.age;
+    if (prefs.maxBudget) form.maxBudget.value = prefs.maxBudget;
+    if (prefs.location) form.location.value = prefs.location;
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const fd = new FormData(form);
+      savePrefs(Object.fromEntries(fd.entries()));
+      alert('Einstellungen gespeichert.');
+      renderActivityGrid('recommendations', getRecommendations(getPrefs()));
+    });
+  }
+
+  renderActivityGrid('recommendations', getRecommendations(getPrefs()));
+
+  const bookingsEl = document.getElementById('booking-history');
+  const bookings = getBookings();
+  if (bookingsEl) {
+    bookingsEl.innerHTML = bookings.length
+      ? `<div class="table-wrap"><table><thead><tr><th>Aktivität</th><th>Termin</th><th>Preis</th><th>Status</th></tr></thead><tbody>
+        ${bookings.map((b) => `<tr><td>${b.activityName}</td><td>${b.slot}</td><td>${b.total} €</td><td>${b.status}</td></tr>`).join('')}
+      </tbody></table></div>`
+      : '<p>Noch keine Buchungen.</p>';
+  }
+
+  const favIds = getFavorites();
+  renderActivityGrid('favorites-list', activities.filter((a) => favIds.includes(a.id)));
+}
+
+function getRecommendations(prefs) {
+  let list = [...activities];
+  if (prefs.maxBudget) list = list.filter((a) => a.price <= Number(prefs.maxBudget));
+  if (prefs.age) list = filterActivities({ age: prefs.age });
+  return list.slice(0, 6);
+}
+
+// =============================================
+// 12. Admin dashboard
+// =============================================
+function initAdminDashboard() {
+  document.getElementById('admin-business-count')?.replaceChildren(
+    document.createTextNode(String(vendors.length))
+  );
+  document.getElementById('admin-activity-count')?.replaceChildren(
+    document.createTextNode(String(activities.length))
+  );
+  document.getElementById('admin-booking-count')?.replaceChildren(
+    document.createTextNode(String(getBookings().length))
+  );
+  document.getElementById('admin-revenue')?.replaceChildren(
+    document.createTextNode(`${getBookings().reduce((s, b) => s + b.total, 0)} €`)
+  );
+
+  const bizTable = document.getElementById('admin-businesses');
+  if (bizTable) {
+    bizTable.innerHTML = vendors
+      .map((b) => {
+        const count = activities.filter((a) => a.vendor_id === b.id).length;
+        return `<tr><td>${b.name}</td><td>${b.email}</td><td>${count}</td><td>—</td></tr>`;
+      })
+      .join('');
+  }
+
+  const resTable = document.getElementById('admin-reservations');
+  if (resTable) {
+    const bookings = getBookings();
+    resTable.innerHTML = bookings.length
+      ? bookings
+          .map((b) => {
+            const act = activities.find((a) => a.id === b.activityId);
+            return `<tr><td>—</td><td>${act ? enrichActivity(act).vendorName : '—'}</td><td>${b.activityName}</td><td>${b.name}</td><td>${b.slot}</td><td>${b.status}</td><td>${b.total} €</td></tr>`;
+          })
+          .join('')
+      : '<tr><td colspan="7">Noch keine Buchungen</td></tr>';
+  }
+}
+
+// =============================================
+// 13. Navigation and chatbot
+// =============================================
+function initNav() {
+  const toggle = document.querySelector('.nav-toggle');
+  const nav = document.querySelector('.nav-main');
+  if (toggle && nav) {
+    toggle.addEventListener('click', () => {
+      const open = nav.classList.toggle('open');
+      toggle.setAttribute('aria-expanded', open);
+    });
+  }
+}
+
+function initChatbot() {
+  const fab = document.getElementById('chat-fab');
+  const panel = document.getElementById('chat-panel');
+  const input = document.getElementById('chat-input');
+  const messages = document.getElementById('chat-messages');
+  if (!fab || !panel) return;
+
+  fab.addEventListener('click', () => panel.classList.toggle('open'));
+
+  document.getElementById('chat-send')?.addEventListener('click', () => {
+    if (!input?.value.trim()) return;
+    messages.innerHTML += `<div><strong>Sie:</strong> ${input.value}</div>`;
+    const t = input.value.toLowerCase();
+    let reply = 'Fragen Sie z. B. „Wie buche ich?" oder „Aktivitäten für Kleinkinder?"';
+    if (t.includes('buch')) reply = 'Aktivität wählen → „Jetzt buchen" → Termin und Personenzahl eingeben.';
+    if (t.includes('klein') || t.includes('3') || t.includes('5')) reply = 'Für Kleinkinder: Filter „0–5 Jahre" oder Aktivitäten wie Kamishibai (ab 3 Jahre).';
+    messages.innerHTML += `<div class="bot"><strong>Kummo:</strong> ${reply}</div>`;
+    input.value = '';
+    messages.scrollTop = messages.scrollHeight;
+  });
+}
+
+// =============================================
+// Final initialization.
+// The header's session indicator (name, role, Anmelden/Abmelden) is owned by
+// auth.js, which initializes itself on every page — nothing to do here.
+// =============================================
+document.addEventListener('DOMContentLoaded', () => {
+  initNav();
+  initChatbot();
+  initApp();
+});
+
+// =============================================
+// Test/debug API exposure.
+// No effect on browser usage: just attaches an object to globalThis.
+// =============================================
+if (typeof globalThis !== 'undefined') {
+  globalThis.KummoApp = {
+    enrichActivity,
+    activityCardHtml,
+    filterActivities,
+    buildSearchUrl,
+    getRecommendations,
+    getPrefs,
+    savePrefs,
+    getBookings,
+    addBooking,
+    getFavorites,
+    toggleFavorite,
+    STORAGE_PREFS,
+    STORAGE_BOOKINGS,
+    STORAGE_FAVORITES,
+    // Test-only: replaces the data loaded from Supabase.
+    __setData: (vendorList, activityList) => {
+      vendors = vendorList;
+      activities = activityList;
+    },
+  };
+}

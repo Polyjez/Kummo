@@ -4,18 +4,18 @@
 // app.js is a "classic" script (loaded via <script> in the browser).
 // We import it here for its side effect: it attaches its API to globalThis.KummoApp.
 import { describe, it, expect, beforeEach } from 'vitest';
-import '../js/app.js';
+import '../static/js/app.js';
 
 const app = globalThis.KummoApp;
 
 const clone = (x) => JSON.parse(JSON.stringify(x));
 
-const shops = [
+const vendors = [
   {
     id: 's1',
     name: 'Lila Farbe',
     address: 'Kreuzberg, Berlin',
-    picture: 'shop.jpg',
+    picture: 'vendor.jpg',
     activity_type: ['Kunst'],
   },
 ];
@@ -23,7 +23,7 @@ const shops = [
 const activities = [
   {
     id: 'a1',
-    shop_id: 's1',
+    vendor_id: 's1',
     title: 'Van Gogh Malkurs',
     description: 'Malen wie die Großen',
     price: 25,
@@ -33,9 +33,9 @@ const activities = [
     picture: 'a1.jpg',
   },
   {
-    // shop_id points to a missing shop -> exercises the fallback
+    // vendor_id points to a missing vendor -> exercises the fallback
     id: 'a2',
-    shop_id: 's2',
+    vendor_id: 's2',
     title: 'Fußball Camp',
     description: 'Sport für alle',
     price: 50,
@@ -46,7 +46,7 @@ const activities = [
 ];
 
 beforeEach(() => {
-  app.__setData(clone(shops), clone(activities));
+  app.__setData(clone(vendors), clone(activities));
   localStorage.clear();
 });
 
@@ -59,15 +59,15 @@ describe('STORAGE constants', () => {
 });
 
 describe('enrichActivity', () => {
-  it('joins the shop via shop_id', () => {
+  it('joins the vendor via vendor_id', () => {
     const e = app.enrichActivity(activities[0]);
-    expect(e.shopName).toBe('Lila Farbe');
+    expect(e.vendorName).toBe('Lila Farbe');
     expect(e.address).toBe('Kreuzberg, Berlin');
   });
 
-  it('uses a fallback when the shop is missing', () => {
+  it('uses a fallback when the vendor is missing', () => {
     const e = app.enrichActivity(activities[1]);
-    expect(e.shopName).toBe('Anbieter unbekannt');
+    expect(e.vendorName).toBe('Anbieter unbekannt');
     expect(e.address).toBe('Adresse unbekannt');
   });
 });
@@ -86,7 +86,7 @@ describe('activityCardHtml', () => {
 describe('buildSearchUrl', () => {
   it('encodes only meaningful filters and emits no literal ${ (regression)', () => {
     const url = app.buildSearchUrl({ q: 'malen', age: 'all', category: 'kunst', maxPrice: '' });
-    expect(url.startsWith('suchen.html?')).toBe(true);
+    expect(url.startsWith('search.html?')).toBe(true);
     expect(url).toContain('q=malen');
     expect(url).toContain('category=kunst');
     expect(url).not.toContain('age=all');
@@ -94,12 +94,12 @@ describe('buildSearchUrl', () => {
   });
 
   it('returns the bare page when there are no filters', () => {
-    expect(app.buildSearchUrl({ age: 'all', category: 'all' })).toBe('suchen.html');
+    expect(app.buildSearchUrl({ age: 'all', category: 'all' })).toBe('search.html');
   });
 });
 
 describe('filterActivities', () => {
-  it('searches free text across title/description/shop', () => {
+  it('searches free text across title/description/vendor', () => {
     expect(app.filterActivities({ q: 'van gogh' }).map((a) => a.id)).toEqual(['a1']);
   });
 
@@ -107,7 +107,7 @@ describe('filterActivities', () => {
     expect(app.filterActivities({ maxPrice: '30' }).map((a) => a.id)).toEqual(['a1']);
   });
 
-  it('filters by category (shop offering + text)', () => {
+  it('filters by category (vendor offering + text)', () => {
     expect(app.filterActivities({ category: 'kunst' }).map((a) => a.id)).toEqual(['a1']);
   });
 

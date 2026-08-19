@@ -1,0 +1,37 @@
+[project]
+name = "kummo"
+version = "0.1.0"
+description = "Kummo API backend"
+requires-python = ">=3.12"
+dependencies = [
+    "asyncpg>=0.30",
+    "fastapi[standard]>=0.115",
+    "prometheus-client>=0.21",
+    "pydantic-settings>=2.7",
+    "sqlalchemy[asyncio]>=2.0",
+    "supabase>=2.15",
+]
+
+# No console scripts: database tasks belong to the Supabase CLI
+# (`pnpm exec supabase db reset` rebuilds the local database, seed included).
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/kummo"]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28",
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+    "integration: needs a running local Supabase Postgres (deselect with -m 'not integration')",
+]

@@ -44,6 +44,7 @@ Each ADR is a **settled** decision; its open points are gathered under [open_que
 | [0001](decisions/0001-payment-stripe-connect.md) | Payment: commission via Stripe Connect |
 | [0002](decisions/0002-booking-build-vs-buy.md) | Booking platform: build in-house vs. buy |
 | [0003](decisions/0003-persistence-sqlalchemy.md) | Persistence layer: SQLAlchemy 2.0 + Alembic |
+| [0004](decisions/0004-supabase-cli-single-migration-chain.md) | Schema migrations: the Supabase CLI as the single DDL chain |
 
 ## Open questions — [open_questions/](open_questions/)
 
@@ -55,7 +56,7 @@ All open questions are gathered here, split by audience. See the [open-questions
 
 **Technical** — [open_questions/technical/](open_questions/technical/)
 - [data-model.md](open_questions/technical/data-model.md) — seats/availability, vendor↔shop, notifications
-- [persistence.md](open_questions/technical/persistence.md) — team SQLAlchemy/Alembic conventions
+- [persistence.md](open_questions/technical/persistence.md) — team SQLAlchemy and migration conventions
 
 ## Development
 

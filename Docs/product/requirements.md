@@ -98,6 +98,7 @@ Revenue is a **percentage success commission on the client's payment** for a boo
 | FR-12 | A vendor can indicate their availability (active / paused). | M |
 | FR-13 | The descriptive profile content can be provided in the supported languages (see DEC-04 on data multilingualism). | S |
 | FR-14 | A vendor views the history of connections concerning them. | M |
+| FR-15 | A vendor can add, disable, update session for an activity. | M |
 
 ### 5.3 Expression of the client's need
 

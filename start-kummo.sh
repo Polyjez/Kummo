@@ -23,19 +23,20 @@ if [ ! -f "$ENV_FILE" ]; then
   exit 1
 fi
 
-# Read .env file and generate js/env.js
+# Read credentials for the FastAPI backend
 SUPABASE_URL=$(grep -E '^SUPABASE_URL=' "$ENV_FILE" | cut -d= -f2-)
-SUPABASE_ANON_KEY=$(grep -E '^SUPABASE_ANON_KEY=' "$ENV_FILE" | cut -d= -f2-)
+SUPABASE_API_KEY=$(grep -E '^SUPABASE_API_KEY=' "$ENV_FILE" | cut -d= -f2-)
+DATABASE_URL=$(grep -E '^DATABASE_URL=' "$ENV_FILE" | cut -d= -f2-)
 
-if [ -z "$SUPABASE_URL" ] || [ -z "$SUPABASE_ANON_KEY" ]; then
-  echo >&2
-  echo "SUPABASE_URL or SUPABASE_ANON_KEY is missing in '${ENV_FILE}'." >&2
-  echo >&2
-  exit 1
-fi
-
-echo "updating js/config.js..." >&2
-sed -i "s|supabaseUrl\s*:[^,]*|supabaseUrl: '${SUPABASE_URL}'|; s|supabaseAnonKey\s*:[^,]*|supabaseAnonKey: '${SUPABASE_ANON_KEY}'|" js/config.js
+for var in SUPABASE_URL SUPABASE_API_KEY DATABASE_URL; do
+  if [ -z "${!var}" ]; then
+    echo >&2
+    echo "${var} is missing in '${ENV_FILE}'." >&2
+    echo "See backend/.env.example for the expected keys." >&2
+    echo >&2
+    exit 1
+  fi
+done
 
 echo "Environment: ${ENV}" >&2
 
@@ -43,33 +44,38 @@ echo "Environment: ${ENV}" >&2
 STARTED_SUPABASE=false
 if [ "$ENV" = "local" ]; then
   # Stop any existing (possibly unhealthy) Supabase containers first
-  npx supabase stop 2>/dev/null || true
+  pnpm exec supabase stop 2>/dev/null || true
   echo "Starting local Supabase instance ..." >&2
-  npx supabase start
+  pnpm exec supabase start
   STARTED_SUPABASE=true
 fi
 
-# --- Web server ---
-PORT=5500
-URL="http://localhost:${PORT}/index.html"
+# --- FastAPI backend ---
+PORT=8000
+URL="http://localhost:${PORT}"
 
-# Look for an available program to start the server.
-if command -v python3 >/dev/null 2>&1; then
-  SERVER=(python3 -m http.server "$PORT")
-elif command -v python >/dev/null 2>&1; then
-  SERVER=(python -m http.server "$PORT")
-elif command -v npx >/dev/null 2>&1; then
-  SERVER=(npx --yes serve -l "$PORT" .)
-else
+if ! command -v uv >/dev/null 2>&1; then
   echo >&2
-  echo "Neither Python nor Node.js was found." >&2
-  echo "Please install Python: https://www.python.org/downloads/" >&2
+  echo "uv not found. Install it: https://docs.astral.sh/uv/getting-started/installation/" >&2
   echo >&2
   exit 1
 fi
 
+export SUPABASE_URL SUPABASE_API_KEY DATABASE_URL
+
+# `supabase start` above already applies pending migrations on a fresh stack; this
+# also covers a stack whose volume survived from an earlier checkout.
+if [ "$ENV" = "local" ]; then
+  echo "Applying database migrations ..." >&2
+  pnpm exec supabase migration up
+fi
+
 echo "Starting Kummo ..." >&2
-"${SERVER[@]}" &
+if [ "$ENV" = "local" ]; then
+  uv --directory backend run fastapi dev src/kummo/main.py --port "$PORT" &
+else
+  uv --directory backend run fastapi run src/kummo/main.py --port "$PORT" &
+fi
 SERVER_PID=$!
 
 # Stop Supabase on exit only if we started it.
@@ -78,7 +84,7 @@ cleanup() {
   if [ "$STARTED_SUPABASE" = true ]; then
     echo >&2
     echo "Stopping Supabase ..." >&2
-    npx supabase stop 2>/dev/null || true
+    pnpm exec supabase stop 2>/dev/null || true
   fi
 }
 trap cleanup EXIT

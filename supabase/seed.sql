@@ -1,10 +1,26 @@
--- Kummo development seed data
--- Only runs on local Supabase instances (supabase start / supabase db reset)
+-- Kummo demo seed data
+--
+-- Locally: applied automatically by `supabase db reset` ([db.seed] in config.toml),
+-- after the CLI migrations have created the kummo schema.
+--
+-- Hosted: by hand, pasted into the dashboard SQL editor. There is no command for it on
+-- purpose -- see "Seed data" in supabase/README.md.
+--
+-- The DELETEs below are what make this re-runnable, and are also why it must never be
+-- applied to an environment holding data worth keeping: they clear all three tables
+-- before re-inserting the fixtures.
+
+-- Idempotent: the rows below carry fixed UUIDs, so clear them first rather than
+-- failing on a second run. DELETE, not TRUNCATE — the foreign keys below are
+-- unqualified and TRUNCATE would need CASCADE.
+DELETE FROM kummo.activities;
+DELETE FROM kummo.clients;
+DELETE FROM kummo.vendors;
 
 -- =============================================================================
--- Shops (10 Berlin-based providers)
+-- Vendors (10 Berlin-based providers)
 -- =============================================================================
-INSERT INTO public.shops (id, name, address, phone, email, website, activity_type, picture) VALUES
+INSERT INTO kummo.vendors (id, name, address, phone, email, website, activity_type, picture) VALUES
 
 ('a1000000-0000-0000-0000-000000000001',
  'Kreativwerkstatt Kreuzberg',
@@ -98,9 +114,9 @@ INSERT INTO public.shops (id, name, address, phone, email, website, activity_typ
 
 
 -- =============================================================================
--- Users (4 test users — no auth, public table only)
+-- Clients (4 test profiles — auth_user_id left null, they have no Supabase Auth identity)
 -- =============================================================================
-INSERT INTO public.users (id, first_name, last_name, email, age, interests, number_children) VALUES
+INSERT INTO kummo.clients (id, first_name, last_name, email, age, interests, number_children) VALUES
 
 ('b2000000-0000-0000-0000-000000000001',
  'Anna', 'Schmidt', 'anna.schmidt@example.de', 34,
@@ -120,51 +136,9 @@ INSERT INTO public.users (id, first_name, last_name, email, age, interests, numb
 
 
 -- =============================================================================
--- Children (6 children linked to users)
+-- Activities (20+ across all vendors)
 -- =============================================================================
-INSERT INTO public.children (id, user_id, first_name, last_name, age, interests, gender) VALUES
-
-('c3000000-0000-0000-0000-000000000001',
- 'b2000000-0000-0000-0000-000000000001',
- 'Lena', 'Schmidt', 5,
- ARRAY['malen','töpfern','tiere'],
- 'weiblich'),
-
-('c3000000-0000-0000-0000-000000000002',
- 'b2000000-0000-0000-0000-000000000001',
- 'Finn', 'Schmidt', 8,
- ARRAY['sport','schwimmen','abenteuer'],
- 'männlich'),
-
-('c3000000-0000-0000-0000-000000000003',
- 'b2000000-0000-0000-0000-000000000002',
- 'Elif', 'Yilmaz', 6,
- ARRAY['musik','tanzen','lesen'],
- 'weiblich'),
-
-('c3000000-0000-0000-0000-000000000004',
- 'b2000000-0000-0000-0000-000000000002',
- 'Emir', 'Yilmaz', 10,
- ARRAY['fussball','schwimmen','wissenschaft'],
- 'männlich'),
-
-('c3000000-0000-0000-0000-000000000005',
- 'b2000000-0000-0000-0000-000000000002',
- 'Aylin', 'Yilmaz', 3,
- ARRAY['malen','musik','tiere'],
- 'weiblich'),
-
-('c3000000-0000-0000-0000-000000000006',
- 'b2000000-0000-0000-0000-000000000004',
- 'Max', 'Weber', 7,
- ARRAY['forschen','sport','bauklötze'],
- 'männlich');
-
-
--- =============================================================================
--- Activities (20+ across all shops)
--- =============================================================================
-INSERT INTO public.activities (id, shop_id, title, description, price, participants_max, duration, age_group, picture) VALUES
+INSERT INTO kummo.activities (id, vendor_id, title, description, price, participants_max, duration, age_group, picture) VALUES
 
 -- Kreativwerkstatt Kreuzberg
 ('d4000000-0000-0000-0000-000000000001',
@@ -331,55 +305,3 @@ INSERT INTO public.activities (id, shop_id, title, description, price, participa
  'https://images.unsplash.com/photo-1530103862676-de8c9debad1d?w=400');
 
 
--- =============================================================================
--- Bookings (8 sample bookings in various statuses)
--- =============================================================================
-INSERT INTO public.bookings (id, user_id, shop_id, slot, quantity, total_price, status) VALUES
-
-('e5000000-0000-0000-0000-000000000001',
- 'b2000000-0000-0000-0000-000000000001',
- 'a1000000-0000-0000-0000-000000000001',
- '2026-06-20 14:00-16:00',
- 2, 36.00, 'confirmed'),
-
-('e5000000-0000-0000-0000-000000000002',
- 'b2000000-0000-0000-0000-000000000001',
- 'a1000000-0000-0000-0000-000000000002',
- '2026-06-22 10:00-12:00',
- 4, 32.00, 'confirmed'),
-
-('e5000000-0000-0000-0000-000000000003',
- 'b2000000-0000-0000-0000-000000000002',
- 'a1000000-0000-0000-0000-000000000004',
- '2026-06-21 09:00-11:00',
- 5, 40.00, 'confirmed'),
-
-('e5000000-0000-0000-0000-000000000004',
- 'b2000000-0000-0000-0000-000000000002',
- 'a1000000-0000-0000-0000-000000000006',
- '2026-06-25 16:00-17:00',
- 1, 45.00, 'pending'),
-
-('e5000000-0000-0000-0000-000000000005',
- 'b2000000-0000-0000-0000-000000000003',
- 'a1000000-0000-0000-0000-000000000005',
- '2026-06-18 14:00-16:00',
- 1, 6.00, 'confirmed'),
-
-('e5000000-0000-0000-0000-000000000006',
- 'b2000000-0000-0000-0000-000000000004',
- 'a1000000-0000-0000-0000-000000000008',
- '2026-06-23 10:00-11:30',
- 2, 36.00, 'confirmed'),
-
-('e5000000-0000-0000-0000-000000000007',
- 'b2000000-0000-0000-0000-000000000004',
- 'a1000000-0000-0000-0000-000000000009',
- '2026-06-24 08:00-09:00',
- 2, 60.00, 'pending'),
-
-('e5000000-0000-0000-0000-000000000008',
- 'b2000000-0000-0000-0000-000000000001',
- 'a1000000-0000-0000-0000-000000000010',
- '2026-07-01 15:00-18:00',
- 1, 150.00, 'cancelled');

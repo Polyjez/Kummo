@@ -2,7 +2,7 @@
 
 | | |
 |---|---|
-| **Status** | Accepted |
+| **Status** | Accepted — *migration strategy amended by [ADR 0004](0004-supabase-cli-single-migration-chain.md)* |
 | **Date** | 2026-07 |
 | **Deciders** | Tech lead |
 | **Resolves** | The persistence open point left by the backend framework choice (*Backend Framework Choice: FastAPI vs. Alternatives*, §5 — not yet captured as an ADR in this repo) |
@@ -29,6 +29,11 @@ The Supabase Python client remains appropriate for Storage and Auth, where Postg
 Adopt **SQLAlchemy 2.0 (async)** as the persistence toolkit for all business-logic tables (bookings, payments, matching, `audit_events`), connecting directly to Postgres rather than through PostgREST. Adopt **Alembic** as the single migration chain for the application-owned schema.
 
 ### Migration strategy: Alembic as single source of truth
+
+> **Superseded by [ADR 0004](0004-supabase-cli-single-migration-chain.md).** This section is
+> kept for the record. In practice the Supabase CLI's own migration chain could not be given
+> up, so the project ran two chains against one database; ADR 0004 collapses all DDL onto the
+> CLI. The SQLAlchemy decision above is unaffected.
 
 Alembic is a schema migration tool only — it compares the state declared by SQLAlchemy models against the actual DB schema and generates versioned `upgrade()`/`downgrade()` scripts. It is the single source of truth for the entire Postgres schema, including objects outside the ORM's native scope:
 
