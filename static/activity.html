@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Aktivität — Kummo</title>
+  <title data-i18n="activity.page_title">Activity — Kummo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
@@ -13,33 +13,50 @@
 <body>
   <header class="site-header">
     <div class="container header-inner">
-      <a class="logo" href="index.html">Kum<span>mo</span></a>
-      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">☰ Menü</button>
-      <nav class="nav-main" id="main-nav">
-        <a href="search.html">Aktivitäten</a>
+      <a class="logo" href="index.html" aria-label="Kummo home"
+        data-i18n-attr="aria-label:common.nav.home_aria">Kum<span>mo</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav"
+        data-i18n="common.nav.menu">☰ Menu</button>
+      <nav class="nav-main" id="main-nav" aria-label="Main navigation"
+        data-i18n-attr="aria-label:common.nav.main_aria">
+        <a href="search.html" data-i18n="common.nav.activities">Activities</a>
         <span id="session-status" hidden></span>
-        <a href="login.html" id="login-link">Anmelden</a>
-        <a href="#" id="logout-btn" hidden>Abmelden</a>
+        <a href="login.html" id="login-link" data-i18n="common.nav.login">Sign in</a>
+        <a href="#" id="logout-btn" hidden data-i18n="common.nav.logout">Sign out</a>
+        <span class="lang-switch" role="group" aria-label="Language"
+          data-i18n-attr="aria-label:common.lang.label">
+          <button type="button" data-lang="en" data-i18n="common.lang.en"
+            data-i18n-attr="title:common.lang.choose_en" title="Show the site in English">EN</button>
+          <button type="button" data-lang="de" data-i18n="common.lang.de"
+            data-i18n-attr="title:common.lang.choose_de" title="Show the site in German">DE</button>
+        </span>
       </nav>
     </div>
   </header>
 
   <main class="container" id="activity-detail">
-    <p class="empty-state">Aktivität wird geladen…</p>
+    <p class="empty-state" data-i18n="activity.loading">Loading activity…</p>
   </main>
 
   <footer class="site-footer">
-    <p class="footer-bottom container"><a href="search.html" style="color:var(--mint)">← Zurück zur Suche</a></p>
+    <p class="footer-bottom container">
+      <a href="search.html" style="color:var(--mint)" data-i18n="common.footer.back_to_search">← Back to search</a>
+    </p>
   </footer>
 
-  <button type="button" class="chat-fab" id="chat-fab" aria-label="Chat öffnen">💬</button>
-  <div class="chat-panel" id="chat-panel" role="region" aria-label="Hilfe-Chat">
-    <strong>Kummo Hilfe</strong>
+  <button type="button" class="chat-fab" id="chat-fab" aria-label="Open chat"
+    data-i18n-attr="aria-label:common.chat.open_aria">💬</button>
+  <div class="chat-panel" id="chat-panel" role="region" aria-label="Help chat"
+    data-i18n-attr="aria-label:common.chat.region_aria">
+    <strong data-i18n="common.chat.title">Kummo help</strong>
     <div class="chat-messages" id="chat-messages"></div>
-    <input type="text" id="chat-input" placeholder="z. B. Wie buche ich?" aria-label="Ihre Frage">
-    <button type="button" class="btn btn-sm btn-primary" id="chat-send" style="margin-top:0.5rem;width:100%">Senden</button>
+    <input type="text" id="chat-input" placeholder="e.g. How do I book?" aria-label="Your question"
+      data-i18n-attr="placeholder:common.chat.placeholder;aria-label:common.chat.input_aria">
+    <button type="button" class="btn btn-sm btn-primary" id="chat-send" style="margin-top:0.5rem;width:100%"
+      data-i18n="common.chat.send">Send</button>
   </div>
 
+  <script src="js/i18n.js" defer></script>
   <script src="js/auth.js" defer></script>
   <script src="js/app.js" defer></script>
 </body>

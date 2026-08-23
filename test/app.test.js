@@ -67,8 +67,8 @@ describe('enrichActivity', () => {
 
   it('uses a fallback when the vendor is missing', () => {
     const e = app.enrichActivity(activities[1]);
-    expect(e.vendorName).toBe('Anbieter unbekannt');
-    expect(e.address).toBe('Adresse unbekannt');
+    expect(e.vendorName).toBe('Vendor unknown');
+    expect(e.address).toBe('Address unknown');
   });
 });
 

@@ -17,7 +17,7 @@ Glide** — treat it as historical product intent. The root `README.md` carries 
 ## Language rules
 
 - **English** for everything developer-facing: code (identifiers, function/variable names), comments, documentation, commit messages, `console.log` debug output, and test descriptions.
-- **German only for UI** — anything an end user sees: rendered page text, `alert()` messages, button labels, and the German `echo` lines in the launcher scripts.
+- **No literal UI text in code** — everything an end user sees (page text, `alert()` messages, button labels, `aria-label`s, page titles) is a key resolved against `static/i18n/<lang>.json`. **English is the source language**: the text written in the markup is English, and the German translation lives in `de.json`. See *Localization* below. The German `echo` lines in the launcher scripts are the exception — they are not part of the site.
 - **DB-mapped field names mirror the `kummo` schema columns**: `title`, `price`, `name`, `address`, `duration`, `picture`, `activity_type`, `age_group`, `participants_max`, `vendor_id`, etc. These are now English to match the actual columns — keep them spelled exactly as the column. There is **no `disponibilites`/availability column** in the schema; code that referenced it is guarded as optional, and the availability form field on `vendor.html` is not persisted (pending a product/schema decision).
 - Historical note: the code (and originally the DB columns) was French — `titre`→`title`, `prix`→`price`, `nom`→`name`, `adresse`→`address`, `duree`→`duration`, `photo`→`picture`, `type_activites`→`activity_type` (and earlier `magasins`→`shops`, `activites`→`activities`). All identifiers are now English. If you find leftover French, translate it.
 - Later rename: `shops`→`vendors` (a vendor is the business *and* the shop), `users`→`clients`, `shop_id`→`vendor_id`, `user_id`→`client_id`, `shopName`→`vendorName`. If you find leftover `shop`, it is stale.
@@ -123,7 +123,7 @@ Then open `http://localhost:8000`. Do not open HTML files with `file://` — the
 
 **Data sources:**
 - **FastAPI backend** (`/api/*`): all reads and writes go through the backend, which holds the database and Supabase credentials server-side. No Supabase SDK in the browser.
-- **`localStorage`** (client-only): bookings, favorites, and user preferences. Keys: `STORAGE_PREFS` / `STORAGE_BOOKINGS` / `STORAGE_FAVORITES`. **Not** the session — that lives in HttpOnly cookies. This data belongs to one account but the browser keeps it across sign-ins, so `auth.js` records the owning account id in `kummo_account` and drops every `kummo_*` key when the session resolves to somebody else (or to nobody). Any new local key must therefore keep the `kummo_` prefix.
+- **`localStorage`** (client-only): bookings, favorites, and user preferences. Keys: `STORAGE_PREFS` / `STORAGE_BOOKINGS` / `STORAGE_FAVORITES`. **Not** the session — that lives in HttpOnly cookies. This data belongs to one account but the browser keeps it across sign-ins, so `auth.js` records the owning account id in `kummo_account` and drops every `kummo_*` key when the session resolves to somebody else (or to nobody). Any new local key must therefore keep the `kummo_` prefix, and must be added to `KEPT_KEYS` in `auth.js` if it belongs to the browser rather than to the account — `kummo_lang` is the one that does.
 - **`js/auth.js`** (`globalThis.KummoAuth`): the only module talking to `/api/auth/*`. Every call sends `credentials: 'same-origin'`; there is no token to read or attach.
 
 ## Supabase setup
@@ -216,5 +216,15 @@ is not already in the environment, and pydantic-settings prefers the environment
 ## Frontend conventions
 
 - No framework, no bundler — vanilla DOM APIs and template-literal HTML strings.
-- `console.log` is acceptable for frontend debug output; use German for any user-facing `alert()` or rendered text.
+- `console.log` is acceptable for frontend debug output; it is developer-facing, so it stays English and is never translated.
+
+### Localization
+
+- **`static/i18n/<lang>.json` holds every user-facing string**, in the format i18next uses: nested keys, `{{name}}` interpolation, `_one`/`_other` plural suffixes. `en.json` is the source; `de.json` is the translation. See `Docs/decisions/0005-localization-json-catalogues.md`.
+- **`js/i18n.js`** loads the catalogue for the visitor's language (explicit choice in `kummo_lang` → browser language → English) and defines the global `t(key, options)` shorthand. It is loaded **first** on every page, before `auth.js` and `app.js`.
+- **In markup**: `data-i18n="key"` (textContent), `data-i18n-html="key"` (text containing markup), `data-i18n-attr="placeholder:key;aria-label:key"`. The English text stays in the element as the fallback; keep it in step with `en.json`.
+- **In page scripts**: `t('activity.book_now')`. The scripts share one global scope, so never declare a local `t` — `i18n.js` owns that name.
+- **Adding a string is two edits**: the key in `en.json` *and* in `de.json`. `test/i18n.test.js` fails when the catalogues drift apart or when a page uses a key nothing defines.
+- Values persisted or sent to the backend stay **codes, not text** (a booking's `status` is `'confirmed'`, rendered through `bookingStatusLabel`): stored data outlives the language it was written in.
+- The **option `value`s of the search filters are data**, matched against the German catalogue content (`kunst`, `natur`, `senioren`, …). Translate the labels, never the values.
 - Supabase publishable (anon) keys are committed in `.env.*` files by design (they are public client keys); the secret service key must never appear here.

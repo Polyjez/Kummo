@@ -9,7 +9,7 @@
 const AUTH_BASE = '/api/auth';
 
 // Thrown for any non-2xx response, carrying the backend's message so callers can
-// show it to the user. German text belongs in the UI, not here.
+// show it to the user. The text itself comes from the catalogue in js/i18n.js.
 class AuthError extends Error {
   constructor(message, status) {
     super(message);
@@ -40,16 +40,18 @@ async function request(path, options = {}) {
   return body;
 }
 
-// Maps a failed response onto something a user can act on.
+// Maps a failed response onto something a user can act on. The backend's own
+// `detail` is passed through untranslated: it is the only case where the message
+// is more specific than anything we could write in advance.
 function errorMessage(status, body) {
-  if (status === 409) return 'Diese E-Mail-Adresse ist bereits registriert.';
-  if (status === 401) return 'E-Mail oder Passwort ist falsch.';
-  if (status === 403) return 'Bitte bestätigt zuerst eure E-Mail-Adresse.';
-  if (status === 429) return 'Zu viele Anfragen. Bitte wartet einen Moment.';
-  if (status === 422) return 'Bitte überprüft die eingegebenen Daten.';
-  if (status === 502) return 'Der Anmeldedienst ist gerade nicht erreichbar.';
+  if (status === 409) return t('auth.errors.email_taken');
+  if (status === 401) return t('auth.errors.bad_credentials');
+  if (status === 403) return t('auth.errors.email_unconfirmed');
+  if (status === 429) return t('auth.errors.rate_limited');
+  if (status === 422) return t('auth.errors.invalid_data');
+  if (status === 502) return t('auth.errors.provider_down');
   if (body && typeof body.detail === 'string') return body.detail;
-  return 'Es ist ein Fehler aufgetreten. Bitte versucht es erneut.';
+  return t('auth.errors.unknown');
 }
 
 function post(path, payload) {
@@ -141,9 +143,14 @@ function resetSession() {
 // =============================================
 const ACCOUNT_KEY = 'kummo_account';
 
+// The chosen language shares the `kummo_` prefix but belongs to the browser, not
+// to the account: dropping it would flip the page back to the browser's language
+// on every sign-in and sign-out.
+const KEPT_KEYS = new Set([globalThis.KummoI18n?.STORAGE_LANG ?? 'kummo_lang']);
+
 function clearLocalData() {
   for (const key of Object.keys(localStorage)) {
-    if (key.startsWith('kummo_')) localStorage.removeItem(key);
+    if (key.startsWith('kummo_') && !KEPT_KEYS.has(key)) localStorage.removeItem(key);
   }
 }
 
@@ -194,8 +201,10 @@ async function requireUser(role) {
 // scripts and would otherwise each need a copy.
 // =============================================
 
-// German, because this is user-facing.
-const ROLE_LABELS = { client: 'Kunde', vendor: 'Anbieter' };
+function roleLabel(role) {
+  // An unknown role shows its own name rather than a missing-key placeholder.
+  return t(`auth.roles.${role}`, { defaultValue: role });
+}
 
 function initials(displayName) {
   const words = displayName.trim().split(/\s+/).filter(Boolean);
@@ -210,7 +219,7 @@ function sessionBadge(user) {
   const badge = document.createElement('a');
   badge.className = 'nav-session';
   badge.href = homeFor(user);
-  badge.setAttribute('aria-label', `Angemeldet als ${user.display_name} (${ROLE_LABELS[user.role] ?? user.role})`);
+  badge.setAttribute('aria-label', t('auth.badge_aria', { name: user.display_name, role: roleLabel(user.role) }));
   badge.title = user.email;
 
   const avatar = document.createElement('span');
@@ -224,14 +233,14 @@ function sessionBadge(user) {
 
   const role = document.createElement('span');
   role.className = 'nav-session-role';
-  role.textContent = ROLE_LABELS[user.role] ?? user.role;
+  role.textContent = roleLabel(user.role);
 
   badge.append(avatar, name, role);
   return badge;
 }
 
-// Reflects the session into the header: the badge, the "Anmelden" link and the
-// "Abmelden" button. `user` is the CurrentUser, or null when nobody is signed in.
+// Reflects the session into the header: the badge, the sign-in link and the
+// sign-out button. `user` is the CurrentUser, or null when nobody is signed in.
 function renderSessionStatus(user) {
   const slot = document.getElementById('session-status');
   const loginLink = document.getElementById('login-link');
@@ -263,6 +272,9 @@ async function logoutAndLeave() {
 async function initSessionHeader() {
   const hasHeader = ['session-status', 'login-link', 'logout-btn'].some((id) => document.getElementById(id));
   if (!hasHeader) return;
+
+  // The badge is text: it cannot be rendered before the catalogue is there.
+  await globalThis.KummoI18n?.ready;
 
   document.getElementById('logout-btn')?.addEventListener('click', (e) => {
     e.preventDefault();
@@ -300,6 +312,7 @@ if (typeof globalThis !== 'undefined') {
     resetSession,
     homeFor,
     requireUser,
+    roleLabel,
     renderSessionStatus,
     initSessionHeader,
   };

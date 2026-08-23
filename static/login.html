@@ -1,10 +1,11 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="Bei Kummo anmelden oder ein neues Konto anlegen.">
-  <title>Kummo — Anmelden</title>
+  <meta name="description" data-i18n-attr="content:login.meta_description"
+    content="Sign in to Kummo or create a new account.">
+  <title data-i18n="login.page_title">Kummo — Sign in</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
@@ -14,13 +15,23 @@
 <body>
   <header class="site-header">
     <div class="container header-inner">
-      <a class="logo" href="index.html" aria-label="Kummo Startseite">Kum<span>mo</span></a>
-      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">☰ Menü</button>
-      <nav class="nav-main" id="main-nav" aria-label="Hauptnavigation">
-        <a href="search.html">Aktivitäten</a>
+      <a class="logo" href="index.html" aria-label="Kummo home"
+        data-i18n-attr="aria-label:common.nav.home_aria">Kum<span>mo</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav"
+        data-i18n="common.nav.menu">☰ Menu</button>
+      <nav class="nav-main" id="main-nav" aria-label="Main navigation"
+        data-i18n-attr="aria-label:common.nav.main_aria">
+        <a href="search.html" data-i18n="common.nav.activities">Activities</a>
         <span id="session-status" hidden></span>
-        <a href="login.html" id="login-link">Anmelden</a>
-        <a href="#" id="logout-btn" hidden>Abmelden</a>
+        <a href="login.html" id="login-link" data-i18n="common.nav.login">Sign in</a>
+        <a href="#" id="logout-btn" hidden data-i18n="common.nav.logout">Sign out</a>
+        <span class="lang-switch" role="group" aria-label="Language"
+          data-i18n-attr="aria-label:common.lang.label">
+          <button type="button" data-lang="en" data-i18n="common.lang.en"
+            data-i18n-attr="title:common.lang.choose_en" title="Show the site in English">EN</button>
+          <button type="button" data-lang="de" data-i18n="common.lang.de"
+            data-i18n-attr="title:common.lang.choose_de" title="Show the site in German">DE</button>
+        </span>
       </nav>
     </div>
   </header>
@@ -28,137 +39,142 @@
   <main class="container" style="padding:2rem 0 4rem; max-width:560px">
     <div id="auth-message" role="alert" style="display:none; margin-bottom:1rem; padding:.75rem 1rem; border-radius:.5rem; background:#fdecea; color:#8a1c12;"></div>
 
-    <!-- Anmelden -->
+    <!-- Sign in -->
     <section id="login-panel">
-      <h1>Anmelden</h1>
+      <h1 data-i18n="login.heading">Sign in</h1>
 
-      <a class="btn btn-outline" href="/api/auth/oauth/google" style="display:block; text-align:center; margin:1rem 0">
-        Mit Google anmelden
+      <a class="btn btn-outline" href="/api/auth/oauth/google" style="display:block; text-align:center; margin:1rem 0"
+        data-i18n="login.google">
+        Sign in with Google
       </a>
 
-      <p style="text-align:center; color:#777; margin:1rem 0">oder mit E-Mail</p>
+      <p style="text-align:center; color:#777; margin:1rem 0" data-i18n="login.or_email">or with email</p>
 
       <form id="login-form">
         <div class="form-row">
-          <label>E-Mail
+          <label><span data-i18n="login.email">Email</span>
             <input type="email" id="login-email" required autocomplete="email">
           </label>
         </div>
         <div class="form-row">
-          <label>Passwort
+          <label><span data-i18n="login.password">Password</span>
             <input type="password" id="login-password" required autocomplete="current-password">
           </label>
         </div>
-        <button type="submit" class="btn btn-primary">Anmelden</button>
+        <button type="submit" class="btn btn-primary" data-i18n="login.submit">Sign in</button>
       </form>
 
       <p style="margin-top:1.5rem">
-        Noch kein Konto?
-        <a href="#" id="show-register">Jetzt registrieren</a>
+        <span data-i18n="login.no_account">No account yet?</span>
+        <a href="#" id="show-register" data-i18n="login.register_link">Register now</a>
       </p>
     </section>
 
-    <!-- Registrieren -->
+    <!-- Register -->
     <section id="register-panel" style="display:none">
-      <h1>Registrieren</h1>
+      <h1 data-i18n="login.register_heading">Register</h1>
 
       <div class="form-row">
-        <label>Ich bin
+        <label><span data-i18n="login.role_label">I am</span>
           <select id="register-role">
-            <option value="client">Familie / Privatperson</option>
-            <option value="vendor">Anbieter</option>
+            <option value="client" data-i18n="login.role_client">A family / private person</option>
+            <option value="vendor" data-i18n="login.role_vendor">A vendor</option>
           </select>
         </label>
       </div>
 
       <form id="register-form">
         <div class="form-row">
-          <label>E-Mail
+          <label><span data-i18n="login.email">Email</span>
             <input type="email" id="register-email" required autocomplete="email">
           </label>
         </div>
         <div class="form-row">
-          <label>Passwort (mindestens 8 Zeichen)
+          <label><span data-i18n="login.password_hint">Password (at least 8 characters)</span>
             <input type="password" id="register-password" required minlength="8" autocomplete="new-password">
           </label>
         </div>
 
-        <!-- Nur für Familien -->
+        <!-- Families only -->
         <div id="client-fields">
           <div class="form-row">
-            <label>Vorname
+            <label><span data-i18n="login.first_name">First name</span>
               <input type="text" id="register-first-name" autocomplete="given-name">
             </label>
           </div>
           <div class="form-row">
-            <label>Nachname
+            <label><span data-i18n="login.last_name">Last name</span>
               <input type="text" id="register-last-name" autocomplete="family-name">
             </label>
           </div>
         </div>
 
-        <!-- Nur für Anbieter -->
+        <!-- Vendors only -->
         <div id="vendor-fields" style="display:none">
           <div class="form-row">
-            <label>Name des Anbieters
+            <label><span data-i18n="login.vendor_name">Vendor name</span>
               <input type="text" id="register-name" autocomplete="organization">
             </label>
           </div>
           <div class="form-row">
-            <label>Adresse
+            <label><span data-i18n="login.address">Address</span>
               <input type="text" id="register-address" autocomplete="street-address">
             </label>
           </div>
           <div class="form-row">
-            <label>Kategorien (mit Komma getrennt, z. B. kunst, workshop)
-              <input type="text" id="register-activity-type" placeholder="kunst, workshop">
+            <label><span data-i18n="login.categories">Categories (comma separated, e.g. art, workshop)</span>
+              <input type="text" id="register-activity-type" placeholder="art, workshop"
+                data-i18n-attr="placeholder:login.categories_placeholder">
             </label>
           </div>
           <div class="form-row">
-            <label>Telefon (optional)
+            <label><span data-i18n="login.phone">Phone (optional)</span>
               <input type="tel" id="register-phone" autocomplete="tel">
             </label>
           </div>
           <div class="form-row">
-            <label>Website (optional)
+            <label><span data-i18n="login.website">Website (optional)</span>
               <input type="url" id="register-website" autocomplete="url">
             </label>
           </div>
         </div>
 
-        <button type="submit" class="btn btn-primary">Konto anlegen</button>
+        <button type="submit" class="btn btn-primary" data-i18n="login.register_submit">Create account</button>
       </form>
 
       <p style="margin-top:1.5rem">
-        Schon registriert?
-        <a href="#" id="show-login">Zur Anmeldung</a>
+        <span data-i18n="login.have_account">Already registered?</span>
+        <a href="#" id="show-login" data-i18n="login.login_link">Go to sign in</a>
       </p>
     </section>
 
-    <!-- Bestätigung ausstehend -->
+    <!-- Confirmation pending -->
     <section id="confirm-panel" style="display:none">
-      <h1>Fast geschafft</h1>
-      <p>
-        Wir haben eine E-Mail an <strong id="confirm-email"></strong> geschickt.
-        Bitte bestätigt eure Adresse über den Link darin, dann könnt ihr euch anmelden.
+      <h1 data-i18n="login.confirm_heading">Almost there</h1>
+      <p data-i18n-html="login.confirm_body">
+        We have sent an email to <strong id="confirm-email"></strong>.
+        Please confirm your address with the link inside, then you can sign in.
       </p>
       <p id="confirm-hint" style="color:#777"></p>
-      <button type="button" class="btn btn-outline" id="resend-confirmation">
-        E-Mail erneut senden
+      <button type="button" class="btn btn-outline" id="resend-confirmation"
+        data-i18n="login.confirm_resend">
+        Send the email again
       </button>
       <p style="margin-top:1.5rem">
-        Schon bestätigt?
-        <a href="#" id="show-login-after-confirm">Zur Anmeldung</a>
+        <span data-i18n="login.confirm_done">Already confirmed?</span>
+        <a href="#" id="show-login-after-confirm" data-i18n="login.confirm_login_link">Go to sign in</a>
       </p>
     </section>
   </main>
 
+  <script src="js/i18n.js"></script>
   <script src="js/auth.js"></script>
   <script src="js/app.js"></script>
   <script>
     // This page is self-contained: app.js's router does not handle it.
     (function () {
       const auth = globalThis.KummoAuth;
+      const i18n = globalThis.KummoI18n;
       const message = document.getElementById('auth-message');
       const loginPanel = document.getElementById('login-panel');
       const registerPanel = document.getElementById('register-panel');
@@ -178,11 +194,13 @@
 
       // Both failing round trips land back here with a marker in the query string:
       // the provider sign-in (?error=oauth) and the confirmation link (?error=confirm).
+      // The catalogue has to be loaded before the message can be shown in the
+      // visitor's language.
       const failure = new URLSearchParams(window.location.search).get('error');
       if (failure === 'oauth') {
-        showError('Die Anmeldung über den Anbieter hat nicht geklappt. Bitte versucht es erneut.');
+        i18n.ready.then(() => showError(t('login.oauth_failed')));
       } else if (failure === 'confirm') {
-        showError('Der Bestätigungslink ist ungültig oder abgelaufen. Bitte fordert eine neue E-Mail an.');
+        i18n.ready.then(() => showError(t('login.confirm_failed')));
       }
 
       function showPanel(which) {
@@ -220,7 +238,7 @@
         clearError();
         try {
           await auth.resendConfirmation(pendingEmail);
-          confirmHint.textContent = 'Wir haben die E-Mail erneut geschickt.';
+          confirmHint.textContent = t('login.confirm_resent');
         } catch (err) {
           confirmHint.textContent = '';
           showError(err.message);
@@ -262,7 +280,7 @@
               .map((c) => c.trim())
               .filter(Boolean);
             if (categories.length === 0) {
-              showError('Bitte gebt mindestens eine Kategorie an.');
+              showError(t('login.categories_required'));
               return;
             }
             registered = await auth.registerVendor({

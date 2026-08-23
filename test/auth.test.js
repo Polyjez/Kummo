@@ -143,15 +143,15 @@ describe('currentUser', () => {
 
 describe('error messages', () => {
   it('are in German for the cases a user can hit', () => {
-    expect(auth.errorMessage(409, {})).toMatch(/bereits registriert/);
-    expect(auth.errorMessage(401, {})).toMatch(/falsch/);
-    expect(auth.errorMessage(422, {})).toMatch(/überprüft/);
-    expect(auth.errorMessage(502, {})).toMatch(/nicht erreichbar/);
+    expect(auth.errorMessage(409, {})).toMatch(/already registered/);
+    expect(auth.errorMessage(401, {})).toMatch(/wrong/);
+    expect(auth.errorMessage(422, {})).toMatch(/check the details/);
+    expect(auth.errorMessage(502, {})).toMatch(/cannot be reached/);
   });
 
   it('falls back to the backend detail, then to a generic message', () => {
     expect(auth.errorMessage(400, { detail: 'Passwort zu schwach' })).toBe('Passwort zu schwach');
-    expect(auth.errorMessage(400, null)).toMatch(/Fehler/);
+    expect(auth.errorMessage(400, null)).toMatch(/went wrong/);
   });
 
   it('surfaces the mapped message on a rejected login', async () => {
@@ -159,7 +159,7 @@ describe('error messages', () => {
 
     await expect(
       auth.login({ email: 'anna@example.de', password: 'falsch' })
-    ).rejects.toThrow(/falsch/);
+    ).rejects.toThrow(/password is wrong/);
   });
 });
 
@@ -186,17 +186,17 @@ describe('session indicator in the header', () => {
 
     expect(status.hidden).toBe(false);
     expect(status.querySelector('.nav-session-name').textContent).toBe('Anna Schmidt');
-    expect(status.querySelector('.nav-session-role').textContent).toBe('Kunde');
+    expect(status.querySelector('.nav-session-role').textContent).toBe('Customer');
     expect(loginLink.hidden).toBe(true);
     expect(logoutBtn.hidden).toBe(false);
   });
 
-  it('labels a vendor as Anbieter and exposes the email as the tooltip', () => {
+  it('labels a vendor as Vendor and exposes the email as the tooltip', () => {
     const { status } = renderNav();
 
     auth.renderSessionStatus({ ...user, role: 'vendor', display_name: 'Kita Sonnenschein' });
 
-    expect(status.querySelector('.nav-session-role').textContent).toBe('Anbieter');
+    expect(status.querySelector('.nav-session-role').textContent).toBe('Vendor');
     expect(status.firstElementChild.title).toBe('anna@example.de');
   });
 
@@ -291,6 +291,18 @@ describe('account-scoped local data', () => {
     await auth.session();
 
     expect(localStorage.getItem('kummo_prefs')).toBe('{"age":"0-5"}');
+  });
+
+  it('keeps the chosen language across a change of account', async () => {
+    stubFetch([{ status: 200, body: user }]);
+    localStorage.setItem('kummo_account', 'someone-else');
+    localStorage.setItem('kummo_lang', 'de');
+    localStorage.setItem('kummo_prefs', '{"age":"0-5"}');
+
+    await auth.session();
+
+    expect(localStorage.getItem('kummo_prefs')).toBeNull();
+    expect(localStorage.getItem('kummo_lang')).toBe('de');
   });
 
   it('drops the data when nobody is signed in', async () => {

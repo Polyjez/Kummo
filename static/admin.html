@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Admin — Kummo</title>
+  <title data-i18n="admin.page_title">Admin — Kummo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
@@ -13,43 +13,66 @@
 <body>
   <header class="site-header">
     <div class="container header-inner">
-      <a class="logo" href="index.html">Kum<span>mo</span></a>
-      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">☰ Menü</button>
-      <nav class="nav-main" id="main-nav">
-        <a href="search.html">Aktivitäten</a>
+      <a class="logo" href="index.html" aria-label="Kummo home"
+        data-i18n-attr="aria-label:common.nav.home_aria">Kum<span>mo</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav"
+        data-i18n="common.nav.menu">☰ Menu</button>
+      <nav class="nav-main" id="main-nav" aria-label="Main navigation"
+        data-i18n-attr="aria-label:common.nav.main_aria">
+        <a href="search.html" data-i18n="common.nav.activities">Activities</a>
         <span id="session-status" hidden></span>
-        <a href="login.html" id="login-link">Anmelden</a>
-        <a href="#" id="logout-btn" hidden>Abmelden</a>
+        <a href="login.html" id="login-link" data-i18n="common.nav.login">Sign in</a>
+        <a href="#" id="logout-btn" hidden data-i18n="common.nav.logout">Sign out</a>
+        <span class="lang-switch" role="group" aria-label="Language"
+          data-i18n-attr="aria-label:common.lang.label">
+          <button type="button" data-lang="en" data-i18n="common.lang.en"
+            data-i18n-attr="title:common.lang.choose_en" title="Show the site in English">EN</button>
+          <button type="button" data-lang="de" data-i18n="common.lang.de"
+            data-i18n-attr="title:common.lang.choose_de" title="Show the site in German">DE</button>
+        </span>
       </nav>
     </div>
   </header>
 
   <main class="container" style="padding:2rem 0 4rem">
-    <h1>Admin-Dashboard</h1>
-    <p>CRM-Übersicht: Anbieter, Aktivitäten, Umsatz</p>
+    <h1 data-i18n="admin.heading">Admin dashboard</h1>
+    <p data-i18n="admin.subtitle">CRM overview: vendors, activities, revenue</p>
 
     <div class="dashboard-stats">
-      <div class="stat-card"><strong id="admin-business-count">0</strong><span>Anbieter</span></div>
-      <div class="stat-card"><strong id="admin-activity-count">0</strong><span>Aktivitäten</span></div>
-      <div class="stat-card"><strong id="admin-booking-count">0</strong><span>Buchungen</span></div>
-      <div class="stat-card"><strong id="admin-revenue">0 €</strong><span>Umsatz (Demo)</span></div>
+      <div class="stat-card"><strong id="admin-business-count">0</strong><span data-i18n="admin.stat_vendors">Vendors</span></div>
+      <div class="stat-card"><strong id="admin-activity-count">0</strong><span data-i18n="admin.stat_activities">Activities</span></div>
+      <div class="stat-card"><strong id="admin-booking-count">0</strong><span data-i18n="admin.stat_bookings">Bookings</span></div>
+      <div class="stat-card"><strong id="admin-revenue">0 €</strong><span data-i18n="admin.stat_revenue">Revenue (demo)</span></div>
     </div>
 
     <section class="section" style="padding-top:0">
-      <h2>Anbieter & Umsatz</h2>
+      <h2 data-i18n="admin.vendors_title">Vendors &amp; revenue</h2>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>Name</th><th>E-Mail</th><th>Aktivitäten</th><th>Umsatz</th></tr></thead>
+          <thead><tr>
+            <th data-i18n="admin.table.name">Name</th>
+            <th data-i18n="admin.table.email">Email</th>
+            <th data-i18n="admin.table.activities">Activities</th>
+            <th data-i18n="admin.table.revenue">Revenue</th>
+          </tr></thead>
           <tbody id="admin-businesses"></tbody>
         </table>
       </div>
     </section>
 
     <section class="section">
-      <h2>Alle Reservierungen</h2>
+      <h2 data-i18n="admin.reservations_title">All reservations</h2>
       <div class="table-wrap">
         <table>
-          <thead><tr><th>ID</th><th>Anbieter</th><th>Aktivität</th><th>Kunde</th><th>Datum</th><th>Status</th><th>Betrag</th></tr></thead>
+          <thead><tr>
+            <th data-i18n="admin.table.id">ID</th>
+            <th data-i18n="admin.table.vendor">Vendor</th>
+            <th data-i18n="admin.table.activity">Activity</th>
+            <th data-i18n="admin.table.customer">Customer</th>
+            <th data-i18n="admin.table.date">Date</th>
+            <th data-i18n="admin.table.status">Status</th>
+            <th data-i18n="admin.table.amount">Amount</th>
+          </tr></thead>
           <tbody id="admin-reservations"></tbody>
         </table>
       </div>
@@ -57,9 +80,10 @@
   </main>
 
   <footer class="site-footer">
-    <p class="footer-bottom container">© 2026 Kummo</p>
+    <p class="footer-bottom container" data-i18n="common.footer.copyright_short">© 2026 Kummo</p>
   </footer>
 
+  <script src="js/i18n.js" defer></script>
   <script src="js/auth.js" defer></script>
   <script src="js/app.js" defer></script>
 </body>

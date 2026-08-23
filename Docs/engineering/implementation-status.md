@@ -30,7 +30,9 @@ named · **Not started** — no code.
 | Reviews | **Not started** | — |
 | Notifications | **Not started** | — |
 | Administration | **Partial** (read-only, client-side) | `static/admin.html`, `app.js` |
-| Accessibility, i18n (DE/EN) | **Not started** | — |
+| Accessibility | **Not started** | — |
+| i18n (DE/EN), interface | **Built** | `static/i18n/*.json`, `static/js/i18n.js` |
+| i18n, vendor-entered content | **Not started** | — |
 
 ## 2. What is built
 
@@ -195,8 +197,12 @@ None of the structuring NFRs are addressed yet, and two of them
 (accessibility, i18n) are the kind that get much more expensive after the fact:
 
 - **Accessibility (NFR-01…03)** — WCAG 2.2 AA, senior-adapted. Not audited.
-- **Multilingualism (NFR-10…12)** — UI text is hard-coded German. No i18n layer.
-  Dynamic-content multilingualism is still open as DEC-04.
+- **Multilingualism (NFR-10…12)** — the **interface** is done: English is the source language,
+  the text lives in `static/i18n/en.json` / `de.json`, and `static/js/i18n.js` resolves it
+  (visitor's choice → browser language → English), with an EN/DE switcher in the header. See
+  [ADR 0005](../decisions/0005-localization-json-catalogues.md). **Vendor-entered content** —
+  activity titles, descriptions, addresses — is still shown as entered: that needs a schema
+  change and a per-language vendor form, and is still open as DEC-04.
 - **Performance (NFR-30…31)** — no measurement; 3.5 works against it.
 - **Email verification** — `enable_confirmations = false` in `supabase/config.toml`, and there is
   no password-reset route. FR-02 is therefore only half met.
@@ -209,5 +215,5 @@ Places where the code intentionally differs from [specification.md](specificatio
 |---|---|---|
 | Supabase as "managed PostgreSQL + Auth, Storage, Realtime" | Auth only; Postgres accessed directly | The browser never talks to Supabase and we do not use RLS, so PostgREST would be a pure HTTP hop |
 | Persistence: "SQLAlchemy 2.0 + Alembic" ([ADR 0003](../decisions/0003-persistence-sqlalchemy.md)) | SQLAlchemy 2.0; Alembic removed | Superseded by [ADR 0004](../decisions/0004-supabase-cli-single-migration-chain.md) — the Supabase CLI is the single DDL chain |
-| "Frontend rebuilt for accessibility, DE/EN, mobile-first" | The prototype is still the running frontend | Not yet started; see 3.9 |
+| "Frontend rebuilt for accessibility, DE/EN, mobile-first" | The prototype is still the running frontend, now with DE/EN | Accessibility and the rebuild are not started; the i18n layer is in place — see 3.9 |
 | "RLS is defense-in-depth" | No RLS | One DML-only role (`kummo_app`); all access goes through the backend |
