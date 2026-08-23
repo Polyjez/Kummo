@@ -24,10 +24,14 @@ from supabase_auth.errors import AuthError as ProviderAuthError
 from ..config import get_settings
 from .errors import (
     AuthError,
+    ConfirmationLinkInvalid,
     EmailAlreadyRegistered,
     EmailConfirmationRequired,
+    EmailNotConfirmed,
     InvalidCredentials,
     OAuthExchangeFailed,
+    ProviderUnavailable,
+    RateLimited,
     SessionExpired,
     WeakPassword,
 )
@@ -46,6 +50,19 @@ class Session:
     email: str
     # Present on OAuth signups: whatever the IDP told us about the person.
     full_name: str | None = None
+
+
+@dataclass(frozen=True)
+class PendingIdentity:
+    """An account that exists at the provider but has no session yet.
+
+    Signing up while the provider requires email confirmation creates the identity and
+    stops there. The auth user id is already final, so the profile row can be written
+    immediately — only the cookies wait for the confirmation link.
+    """
+
+    auth_user_id: UUID
+    email: str
 
 
 @dataclass(frozen=True)
@@ -87,9 +104,22 @@ def _to_session(response) -> Session:
     )
 
 
+def _to_pending(response) -> PendingIdentity:
+    user = getattr(response, "user", None)
+    if user is None or user.id is None:
+        raise EmailConfirmationRequired(
+            "The identity provider issued neither a session nor an account."
+        )
+    return PendingIdentity(auth_user_id=UUID(str(user.id)), email=user.email or "")
+
+
 def _translate(error: ProviderAuthError) -> AuthError:
     code = getattr(error, "code", None) or ""
     message = str(getattr(error, "message", error))
+    if code == "email_not_confirmed":
+        return EmailNotConfirmed("This address has not been confirmed yet.")
+    if code in {"over_email_send_rate_limit", "over_request_rate_limit"}:
+        return RateLimited("Too many attempts. Try again in a moment.")
     if code in {"user_already_exists", "email_exists"}:
         return EmailAlreadyRegistered("That email address already has an account.")
     if code == "weak_password":
@@ -100,17 +130,27 @@ def _translate(error: ProviderAuthError) -> AuthError:
         return InvalidCredentials("Wrong email or password.")
     if "Invalid login credentials" in message:
         return InvalidCredentials("Wrong email or password.")
+    if "Email not confirmed" in message:
+        return EmailNotConfirmed("This address has not been confirmed yet.")
     logger.warning("Unmapped provider auth error (code=%s): %s", code, message)
+    # A rejection we have no name for is still a rejection: the caller sent something
+    # the provider refused, which is a 400. Only `_unavailable` means "not reachable".
     return AuthError(message)
 
 
 def _unavailable(error: Exception) -> AuthError:
     """A transport failure is not an authentication answer — it is a 502."""
     logger.warning("Identity provider unreachable: %s", error)
-    return AuthError("The identity provider is unavailable.")
+    return ProviderUnavailable("The identity provider is unavailable.")
 
 
-async def sign_up(email: str, password: str) -> Session:
+async def sign_up(email: str, password: str) -> Session | PendingIdentity:
+    """Create the identity.
+
+    Two legitimate outcomes, depending on the provider's confirmation setting: a live
+    session, or an identity waiting for its confirmation link. Both carry the auth user
+    id, which is what the profile row is linked on.
+    """
     client = await _client()
     try:
         response = await client.auth.sign_up({"email": email, "password": password})
@@ -118,7 +158,48 @@ async def sign_up(email: str, password: str) -> Session:
         raise _translate(error) from error
     except httpx.HTTPError as error:
         raise _unavailable(error) from error
+
+    session = getattr(response, "session", None)
+    if session is None or session.access_token is None:
+        return _to_pending(response)
     return _to_session(response)
+
+
+async def confirm_email(token_hash: str) -> Session:
+    """Redeem the token hash from a confirmation email for a real session.
+
+    Server-side on purpose: the alternative — letting the provider redirect straight to
+    the browser — hands the tokens to page JS, which is exactly what the cookie
+    transport exists to avoid.
+    """
+    client = await _client()
+    try:
+        response = await client.auth.verify_otp(
+            {"token_hash": token_hash, "type": "email"}
+        )
+    except ProviderAuthError as error:
+        raise ConfirmationLinkInvalid("The confirmation link is no longer valid.") from error
+    except httpx.HTTPError as error:
+        raise _unavailable(error) from error
+    return _to_session(response)
+
+
+async def resend_confirmation(email: str) -> None:
+    """Send the confirmation email again.
+
+    Whether the address has an account is not ours to disclose, so anything but a
+    throttle is swallowed: the caller is told the same thing either way.
+    """
+    client = await _client()
+    try:
+        await client.auth.resend({"type": "signup", "email": email})
+    except ProviderAuthError as error:
+        translated = _translate(error)
+        if isinstance(translated, RateLimited):
+            raise translated from error
+        logger.info("Confirmation resend declined by the provider: %s", translated)
+    except httpx.HTTPError as error:
+        raise _unavailable(error) from error
 
 
 async def sign_in(email: str, password: str) -> Session:

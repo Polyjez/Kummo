@@ -5,11 +5,14 @@ to the stubbed suite for the same reason: they were about what happens to the *c
 on a path where the provider genuinely rejects something, and the stub never did.
 """
 
+import asyncio
 from uuid import uuid4
 
 import pytest
 
 from kummo.auth import cookies
+
+from .mail import confirmation_token_hash
 
 pytestmark = pytest.mark.integration
 
@@ -28,18 +31,33 @@ def expired_cookies(response) -> set[str]:
     }
 
 
-async def register(db_client) -> dict:
+async def register(db_client, email: str | None = None) -> dict:
+    """A registered *and confirmed* client, with the session cookies on `db_client`.
+
+    Registration alone no longer signs anybody in: the local stack requires email
+    confirmation, the same as the hosted project. So the helper walks the whole path —
+    sign up, read the link out of the mail catcher, redeem it.
+    """
+    email = email or unique_email()
     response = await db_client.post(
         "/api/auth/register/client",
         json={
-            "email": unique_email(),
+            "email": email,
             "password": PASSWORD,
             "first_name": "Anna",
             "last_name": "Schmidt",
         },
     )
-    assert response.status_code == 201, response.text
-    return response.json()
+    assert response.status_code == 202, response.text
+    assert response.json()["status"] == "pending_confirmation"
+
+    confirmed = await db_client.get(
+        "/api/auth/confirm",
+        params={"token_hash": await confirmation_token_hash(email)},
+        follow_redirects=False,
+    )
+    assert confirmed.status_code == 303, confirmed.text
+    return response.json()["user"]
 
 
 async def test_register_then_me_round_trips(db_client):
@@ -55,6 +73,16 @@ async def test_register_then_me_round_trips(db_client):
 
 
 async def test_no_token_reaches_the_response_body(db_client):
+    await register(db_client)
+
+    me = await db_client.get("/api/auth/me")
+
+    assert "access_token" not in me.text
+    assert db_client.cookies[cookies.SESSION_COOKIE] not in me.text
+
+
+async def test_registration_alone_hands_out_no_session(db_client):
+    """The provider requires confirmation, so there is nothing to put in a cookie."""
     response = await db_client.post(
         "/api/auth/register/client",
         json={
@@ -65,8 +93,89 @@ async def test_no_token_reaches_the_response_body(db_client):
         },
     )
 
+    assert response.status_code == 202
+    assert response.headers.get_list("set-cookie") == []
     assert "access_token" not in response.text
-    assert db_client.cookies[cookies.SESSION_COOKIE] not in response.text
+    assert (await db_client.get("/api/auth/me")).status_code == 401
+
+
+async def test_signing_in_before_confirming_is_403(db_client):
+    """The failure that only showed up against the hosted project: the provider answers
+    the password grant with a 400 `email_not_confirmed`, which used to reach the browser
+    as a 502 "the identity provider is unavailable"."""
+    email = unique_email()
+    registered = await db_client.post(
+        "/api/auth/register/client",
+        json={
+            "email": email,
+            "password": PASSWORD,
+            "first_name": "Anna",
+            "last_name": "Schmidt",
+        },
+    )
+    assert registered.status_code == 202
+
+    response = await db_client.post(
+        "/api/auth/login", json={"email": email, "password": PASSWORD}
+    )
+
+    assert response.status_code == 403
+    assert "supabase" not in response.text.lower()
+
+
+async def test_confirming_then_signing_in_works(db_client):
+    registered = await register(db_client)
+
+    signed_in = await db_client.post(
+        "/api/auth/login", json={"email": registered["email"], "password": PASSWORD}
+    )
+
+    assert signed_in.status_code == 200
+    assert signed_in.json()["id"] == registered["id"]
+
+
+async def test_a_confirmation_link_cannot_be_spent_twice(db_client):
+    email = unique_email()
+    await register(db_client, email)
+    token_hash = await confirmation_token_hash(email)
+
+    again = await db_client.get(
+        "/api/auth/confirm", params={"token_hash": token_hash}, follow_redirects=False
+    )
+
+    assert again.status_code == 303
+    assert again.headers["location"].endswith("/login.html?error=confirm")
+
+
+async def test_resending_the_confirmation_is_accepted(db_client):
+    email = unique_email()
+    await db_client.post(
+        "/api/auth/register/client",
+        json={
+            "email": email,
+            "password": PASSWORD,
+            "first_name": "Anna",
+            "last_name": "Schmidt",
+        },
+    )
+    # The sign-up just sent one. `[auth.email] max_frequency` throttles the next mail to
+    # the same address, and a resend inside that window is a 429 by design.
+    await asyncio.sleep(1.2)
+
+    response = await db_client.post(
+        "/api/auth/resend-confirmation", json={"email": email}
+    )
+
+    assert response.status_code == 204
+
+
+async def test_resending_for_an_unknown_address_says_nothing(db_client):
+    """The one place registration's existence disclosure must not leak through."""
+    response = await db_client.post(
+        "/api/auth/resend-confirmation", json={"email": unique_email()}
+    )
+
+    assert response.status_code == 204
 
 
 async def test_refresh_rotates_the_session(db_client):
@@ -128,17 +237,26 @@ async def test_me_is_401_once_the_session_cookie_is_gone(db_client):
     assert (await db_client.get("/api/auth/me")).status_code == 401
 
 
-async def test_registering_the_same_address_twice_is_409(db_client):
-    email = unique_email()
-    body = {
-        "email": email,
-        "password": PASSWORD,
-        "first_name": "Anna",
-        "last_name": "Schmidt",
-    }
+async def test_registering_a_confirmed_address_again_is_409(db_client):
+    """The duplicate has to be *confirmed* before the provider will admit it exists.
 
-    assert (await db_client.post("/api/auth/register/client", json=body)).status_code == 201
-    second = await db_client.post("/api/auth/register/client", json=body)
+    With confirmations on, signing up an address that exists but has not been confirmed
+    is not an error at all: the provider re-sends the confirmation and answers 200 with
+    the same auth user id, deliberately disclosing nothing. Only a confirmed address
+    comes back as `user_already_exists`.
+    """
+    email = unique_email()
+    await register(db_client, email)
+
+    second = await db_client.post(
+        "/api/auth/register/client",
+        json={
+            "email": email,
+            "password": PASSWORD,
+            "first_name": "Anna",
+            "last_name": "Schmidt",
+        },
+    )
 
     assert second.status_code == 409
 

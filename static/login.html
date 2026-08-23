@@ -134,6 +134,23 @@
         <a href="#" id="show-login">Zur Anmeldung</a>
       </p>
     </section>
+
+    <!-- Bestätigung ausstehend -->
+    <section id="confirm-panel" style="display:none">
+      <h1>Fast geschafft</h1>
+      <p>
+        Wir haben eine E-Mail an <strong id="confirm-email"></strong> geschickt.
+        Bitte bestätigt eure Adresse über den Link darin, dann könnt ihr euch anmelden.
+      </p>
+      <p id="confirm-hint" style="color:#777"></p>
+      <button type="button" class="btn btn-outline" id="resend-confirmation">
+        E-Mail erneut senden
+      </button>
+      <p style="margin-top:1.5rem">
+        Schon bestätigt?
+        <a href="#" id="show-login-after-confirm">Zur Anmeldung</a>
+      </p>
+    </section>
   </main>
 
   <script src="js/auth.js"></script>
@@ -145,7 +162,10 @@
       const message = document.getElementById('auth-message');
       const loginPanel = document.getElementById('login-panel');
       const registerPanel = document.getElementById('register-panel');
+      const confirmPanel = document.getElementById('confirm-panel');
+      const confirmHint = document.getElementById('confirm-hint');
       const roleSelect = document.getElementById('register-role');
+      let pendingEmail = '';
 
       function showError(text) {
         message.textContent = text;
@@ -156,15 +176,29 @@
         message.style.display = 'none';
       }
 
-      // A failed provider round trip comes back as ?error=oauth.
-      if (new URLSearchParams(window.location.search).get('error') === 'oauth') {
+      // Both failing round trips land back here with a marker in the query string:
+      // the provider sign-in (?error=oauth) and the confirmation link (?error=confirm).
+      const failure = new URLSearchParams(window.location.search).get('error');
+      if (failure === 'oauth') {
         showError('Die Anmeldung über den Anbieter hat nicht geklappt. Bitte versucht es erneut.');
+      } else if (failure === 'confirm') {
+        showError('Der Bestätigungslink ist ungültig oder abgelaufen. Bitte fordert eine neue E-Mail an.');
       }
 
       function showPanel(which) {
         clearError();
         loginPanel.style.display = which === 'login' ? 'block' : 'none';
         registerPanel.style.display = which === 'register' ? 'block' : 'none';
+        confirmPanel.style.display = which === 'confirm' ? 'block' : 'none';
+      }
+
+      // Registration that still needs the link in the email: there is no session yet,
+      // so there is nothing to redirect to.
+      function awaitConfirmation(email) {
+        pendingEmail = email;
+        document.getElementById('confirm-email').textContent = email;
+        confirmHint.textContent = '';
+        showPanel('confirm');
       }
 
       document.getElementById('show-register').addEventListener('click', (e) => {
@@ -175,6 +209,22 @@
       document.getElementById('show-login').addEventListener('click', (e) => {
         e.preventDefault();
         showPanel('login');
+      });
+
+      document.getElementById('show-login-after-confirm').addEventListener('click', (e) => {
+        e.preventDefault();
+        showPanel('login');
+      });
+
+      document.getElementById('resend-confirmation').addEventListener('click', async () => {
+        clearError();
+        try {
+          await auth.resendConfirmation(pendingEmail);
+          confirmHint.textContent = 'Wir haben die E-Mail erneut geschickt.';
+        } catch (err) {
+          confirmHint.textContent = '';
+          showError(err.message);
+        }
       });
 
       roleSelect.addEventListener('change', () => {
@@ -204,7 +254,7 @@
         const password = document.getElementById('register-password').value;
 
         try {
-          let user;
+          let registered;
           if (roleSelect.value === 'vendor') {
             const categories = document
               .getElementById('register-activity-type')
@@ -215,7 +265,7 @@
               showError('Bitte gebt mindestens eine Kategorie an.');
               return;
             }
-            user = await auth.registerVendor({
+            registered = await auth.registerVendor({
               email,
               password,
               name: document.getElementById('register-name').value,
@@ -225,14 +275,18 @@
               website: document.getElementById('register-website').value,
             });
           } else {
-            user = await auth.registerClient({
+            registered = await auth.registerClient({
               email,
               password,
               firstName: document.getElementById('register-first-name').value,
               lastName: document.getElementById('register-last-name').value,
             });
           }
-          window.location.href = auth.homeFor(user);
+          if (registered.status === 'pending_confirmation') {
+            awaitConfirmation(email);
+            return;
+          }
+          window.location.href = auth.homeFor(registered.user);
         } catch (err) {
           showError(err.message);
         }

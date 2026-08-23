@@ -9,6 +9,7 @@ network-facing coroutines stay the route tests' problem.
 import base64
 import hashlib
 from urllib.parse import parse_qs, urlparse
+from uuid import uuid4
 
 import pytest
 from supabase_auth.errors import AuthApiError, AuthWeakPasswordError
@@ -18,7 +19,9 @@ from kummo.auth.errors import (
     AuthError,
     EmailAlreadyRegistered,
     EmailConfirmationRequired,
+    EmailNotConfirmed,
     InvalidCredentials,
+    RateLimited,
     WeakPassword,
 )
 
@@ -60,10 +63,65 @@ def test_a_weak_password_does_not_carry_the_providers_wording():
 
 
 def test_an_unmapped_error_stays_a_bare_auth_error():
-    """Which the route layer turns into a 502 with a fixed detail."""
+    """Which the route layer turns into a 400 with a fixed detail."""
     translated = service._translate(api_error("something new", "some_new_code"))
 
     assert type(translated) is AuthError
+
+
+def test_an_unconfirmed_address_becomes_email_not_confirmed():
+    """The failure that made cloud sign-in look like an outage.
+
+    Unmapped, it arrived at the route layer as a bare `AuthError` and was reported as
+    "the identity provider is unavailable" — for a live 400 from the token endpoint.
+    """
+    translated = service._translate(api_error("Email not confirmed", "email_not_confirmed"))
+
+    assert isinstance(translated, EmailNotConfirmed)
+
+
+def test_email_not_confirmed_is_recognised_by_message_when_the_code_is_absent():
+    translated = service._translate(api_error("Email not confirmed", None))
+
+    assert isinstance(translated, EmailNotConfirmed)
+
+
+@pytest.mark.parametrize("code", ["over_email_send_rate_limit", "over_request_rate_limit"])
+def test_a_throttle_becomes_rate_limited(code):
+    translated = service._translate(api_error("too many requests", code))
+
+    assert isinstance(translated, RateLimited)
+
+
+# --- Sign-up outcomes -------------------------------------------------------------
+
+
+class _User:
+    def __init__(self, user_id, email):
+        self.id = user_id
+        self.email = email
+        self.user_metadata = {}
+
+
+class _Response:
+    def __init__(self, user=None, session=None):
+        self.user = user
+        self.session = session
+
+
+def test_a_signup_without_a_session_is_a_pending_identity():
+    """What a provider that requires email confirmation answers."""
+    user_id = uuid4()
+    pending = service._to_pending(_Response(user=_User(user_id, "anna@example.de")))
+
+    assert pending == service.PendingIdentity(
+        auth_user_id=user_id, email="anna@example.de"
+    )
+
+
+def test_a_signup_with_neither_session_nor_user_is_refused():
+    with pytest.raises(EmailConfirmationRequired):
+        service._to_pending(_Response())
 
 
 # --- PKCE and state ---------------------------------------------------------------

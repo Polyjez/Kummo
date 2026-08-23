@@ -106,6 +106,14 @@ Then open `http://localhost:8000`. Do not open HTML files with `file://` — the
 | `service.py` | **the only module aware the provider is Supabase** |
 
 - The session is two HttpOnly cookies (`kummo_session`, `kummo_refresh`). No token ever reaches page JS, and no response body names Supabase.
+- **Registration is two steps.** Both the local stack and the hosted project require email
+  confirmation, so `sign_up` returns a `PendingIdentity` rather than a `Session`: the profile row
+  is written (the auth user id is already final, and the vendor details only exist in that
+  request) but no cookies are set, and the route answers `202 {"status": "pending_confirmation"}`.
+  `GET /api/auth/confirm` is the second entry path that sets cookies — the confirmation email
+  links there, not to GoTrue's `/verify`, so the tokens are redeemed server-side and never reach
+  page JS. Signing in before confirming is a 403, not a 401. The mail is
+  `supabase/templates/confirmation.html`.
 - **Registration cannot be atomic** — the identity is created over HTTP while the profile row is a local transaction, and removing a stray identity would need the service key we do not hold. So every entry path calls `ensure_*_profile`, and an interrupted registration is completed on the next sign-in rather than compensated. Do not add a "delete the auth user" rollback.
 - **OAuth signup always creates a client.** A vendor is also the shop, so it needs an address and activity types that a Google profile cannot supply. Existing vendors can still sign in via Google — the callback finds the profile already linked.
 - OAuth uses PKCE **and** a `state` value, both in one short-lived HttpOnly cookie (`kummo_oauth_verifier`, stored as `state.verifier`), because the authorize request and the callback are separate HTTP requests. The callback rejects a missing or mismatched `state`.
@@ -122,6 +130,11 @@ Then open `http://localhost:8000`. Do not open HTML files with `file://` — the
 
 - Canonical project URL: `https://xusuvidhmuyzpfrtxutd.supabase.co` (20-char ref).
 - Credentials live only in `.env.*` files, read by the FastAPI backend via pydantic-settings. They are never sent to the browser.
+- **`config.toml` configures both projects, not just the local one.** Auth settings and email
+  templates reach the hosted project with `pnpm exec supabase config push` — not through the
+  dashboard, which the next push would overwrite anyway. It pushes `site_url` and
+  `additional_redirect_urls` as written (`http://localhost:8000` today) and needs
+  `SUPABASE_AUTH_EXTERNAL_GOOGLE_*` exported, since `[auth.external.google]` is enabled there.
 - **Supabase is used for Auth only.** Application data does not go through PostgREST: the browser never talks to Supabase and we do not use RLS, so PostgREST would be a pure HTTP hop. The backend connects to Postgres directly.
 - **One migration chain.** `supabase/migrations/` (CLI, plain SQL, runs as `postgres`) owns *all* DDL — auth config, extensions, roles and every application table in `kummo`. Alembic was removed; see `Docs/decisions/0004-supabase-cli-single-migration-chain.md`. If you find a reference to `backend/alembic/`, `MIGRATION_DATABASE_URL` or `kummo-db-reset`, it is stale.
 - **One DB role of our own**: `kummo_app`, DML only, defined in `supabase/migrations/20260804155602_kummo-backend.sql`. Migrations are owned by whatever role the CLI connects as; a migration that adds a table ends with `grant select, insert, update, delete on all tables in schema kummo to kummo_app;`.

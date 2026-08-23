@@ -16,13 +16,24 @@ from .. import metrics
 from ..config import Settings, get_settings
 from ..db import get_session
 from . import cookies, service
-from .api_model import ClientRegistration, Credentials, CurrentUser, VendorRegistration
+from .api_model import (
+    ClientRegistration,
+    Credentials,
+    CurrentUser,
+    EmailRequest,
+    RegistrationResult,
+    VendorRegistration,
+)
 from .dependencies import get_current_profile
 from .errors import (
     AuthError,
+    ConfirmationLinkInvalid,
     EmailAlreadyRegistered,
     EmailConfirmationRequired,
+    EmailNotConfirmed,
     InvalidCredentials,
+    ProviderUnavailable,
+    RateLimited,
     SessionExpired,
     WeakPassword,
 )
@@ -51,8 +62,38 @@ def _as_current_user(profile: Profile) -> CurrentUser:
     )
 
 
-def _identity_of(session: service.Session) -> Identity:
+def _identity_of(session: service.Session | service.PendingIdentity) -> Identity:
     return Identity(auth_user_id=session.auth_user_id, email=session.email)
+
+
+def _home_of(profile: Profile) -> str:
+    """The page that belongs to the role — the same split the frontend guard enforces."""
+    return "/vendor.html" if profile.role == "vendor" else "/client.html"
+
+
+async def _profile_or_completed(db: AsyncSession, auth_session: service.Session) -> Profile:
+    """The profile linked to this identity, created now if registration never got there.
+
+    Registration cannot be atomic — the identity is an HTTP call, the profile a local
+    transaction — so an interrupted one is completed on the next entry rather than
+    compensated.
+
+    A warning rather than an aside: nothing recorded which role was being registered,
+    so this always produces a *client*. If the interrupted registration was a vendor's,
+    this is the line that says where that went.
+    """
+    profile = await find_profile(db, auth_session.auth_user_id)
+    if profile is not None:
+        return profile
+
+    logger.warning(
+        "Auth user %s has no profile; completing it as a client",
+        auth_session.auth_user_id,
+    )
+    first_name, last_name = split_full_name(auth_session.full_name, auth_session.email)
+    return await ensure_client_profile(
+        db, _identity_of(auth_session), first_name, last_name
+    )
 
 
 def _http_error(error: AuthError) -> HTTPException:
@@ -60,11 +101,25 @@ def _http_error(error: AuthError) -> HTTPException:
         return HTTPException(status_code=401, detail=str(error))
     if isinstance(error, EmailAlreadyRegistered):
         return HTTPException(status_code=409, detail=str(error))
-    if isinstance(error, (WeakPassword, EmailConfirmationRequired)):
-        return HTTPException(status_code=400, detail=str(error))
+    if isinstance(error, EmailNotConfirmed):
+        # Credentials that are right but an account that is not usable yet: 403, not
+        # 401 — repeating them will not help until the link in the email is clicked.
+        return HTTPException(status_code=403, detail=str(error))
+    if isinstance(error, RateLimited):
+        return HTTPException(status_code=429, detail=str(error))
     if isinstance(error, SessionExpired):
         return HTTPException(status_code=401, detail=str(error))
-    return HTTPException(status_code=502, detail="The identity provider is unavailable")
+    if isinstance(error, ProviderUnavailable):
+        return HTTPException(status_code=502, detail="The identity provider is unavailable")
+    if isinstance(error, (WeakPassword, EmailConfirmationRequired, ConfirmationLinkInvalid)):
+        # Our own wording, safe to hand back.
+        return HTTPException(status_code=400, detail=str(error))
+    # A rejection we have no name for is still a rejection: the caller sent something
+    # the provider refused, so it is a 400 — reporting it as 502 said "outage" about a
+    # live answer. The provider's own text stays in the log, where it cannot leak a
+    # hostname or an internal code to the browser.
+    logger.warning("Unmapped auth failure returned as 400: %s", error)
+    return HTTPException(status_code=400, detail="The sign-in service refused the request")
 
 
 def _log_safe(value: str | None, limit: int = 80) -> str:
@@ -90,54 +145,75 @@ def _failed_response(error: AuthError) -> JSONResponse:
     return JSONResponse({"detail": http_error.detail}, status_code=http_error.status_code)
 
 
-@router.post("/register/client", response_model=CurrentUser, status_code=201)
+def _registered(
+    profile: Profile,
+    identity: service.Session | service.PendingIdentity,
+    response: Response,
+    event: str,
+) -> RegistrationResult:
+    """Finish a registration, with or without a session to hand out.
+
+    When the provider requires email confirmation it creates the identity and stops
+    there, so there is nothing to put in a cookie yet. The profile row is written
+    either way — the auth user id is already final, and the details typed into the
+    form only exist in this request.
+    """
+    if isinstance(identity, service.PendingIdentity):
+        logger.info("Registered %s %s, awaiting email confirmation", profile.role, profile.id)
+        metrics.record_auth_event(event, metrics.PENDING)
+        response.status_code = 202
+        return RegistrationResult(
+            status="pending_confirmation", user=_as_current_user(profile)
+        )
+
+    logger.info("Registered %s %s", profile.role, profile.id)
+    metrics.record_auth_event(event)
+    cookies.set_session_cookies(response, identity)
+    return RegistrationResult(status="active", user=_as_current_user(profile))
+
+
+@router.post("/register/client", response_model=RegistrationResult, status_code=201)
 async def register_client(
     body: ClientRegistration,
     response: Response,
     db: AsyncSession = Depends(get_session),
-) -> CurrentUser:
+) -> RegistrationResult:
     try:
-        auth_session = await service.sign_up(body.email, body.password)
+        identity = await service.sign_up(body.email, body.password)
     except AuthError as error:
         metrics.record_auth_event(metrics.AUTH_REGISTER_CLIENT, metrics.FAILURE)
         raise _http_error(error) from error
 
-    profile = await ensure_client_profile(
-        db, _identity_of(auth_session), body.first_name, body.last_name
-    )
     # Identifiers, never the address: these lines are an audit trail, not a mailing
     # list, and the profile id is what every other line here can be joined on.
-    logger.info("Registered client %s", profile.id)
-    metrics.record_auth_event(metrics.AUTH_REGISTER_CLIENT)
-    cookies.set_session_cookies(response, auth_session)
-    return _as_current_user(profile)
+    profile = await ensure_client_profile(
+        db, _identity_of(identity), body.first_name, body.last_name
+    )
+    return _registered(profile, identity, response, metrics.AUTH_REGISTER_CLIENT)
 
 
-@router.post("/register/vendor", response_model=CurrentUser, status_code=201)
+@router.post("/register/vendor", response_model=RegistrationResult, status_code=201)
 async def register_vendor(
     body: VendorRegistration,
     response: Response,
     db: AsyncSession = Depends(get_session),
-) -> CurrentUser:
+) -> RegistrationResult:
     try:
-        auth_session = await service.sign_up(body.email, body.password)
+        identity = await service.sign_up(body.email, body.password)
     except AuthError as error:
         metrics.record_auth_event(metrics.AUTH_REGISTER_VENDOR, metrics.FAILURE)
         raise _http_error(error) from error
 
     profile = await ensure_vendor_profile(
         db,
-        _identity_of(auth_session),
+        _identity_of(identity),
         name=body.name,
         address=body.address,
         activity_type=body.activity_type,
         phone=body.phone,
         website=body.website,
     )
-    logger.info("Registered vendor %s", profile.id)
-    metrics.record_auth_event(metrics.AUTH_REGISTER_VENDOR)
-    cookies.set_session_cookies(response, auth_session)
-    return _as_current_user(profile)
+    return _registered(profile, identity, response, metrics.AUTH_REGISTER_VENDOR)
 
 
 @router.post("/login", response_model=CurrentUser)
@@ -154,29 +230,70 @@ async def login(
         metrics.record_auth_event(metrics.AUTH_LOGIN, metrics.FAILURE)
         raise _http_error(error) from error
 
-    profile = await find_profile(db, auth_session.auth_user_id)
-    if profile is None:
-        # Registration was interrupted after the identity was created. Complete it now
-        # rather than leaving the account permanently unusable.
-        #
-        # A warning rather than an aside: nothing recorded which role was being
-        # registered, so this always produces a *client*. If the interrupted
-        # registration was a vendor's, this is the line that says where that went.
-        logger.warning(
-            "Auth user %s signed in with no profile; completing it as a client",
-            auth_session.auth_user_id,
-        )
-        first_name, last_name = split_full_name(
-            auth_session.full_name, auth_session.email
-        )
-        profile = await ensure_client_profile(
-            db, _identity_of(auth_session), first_name, last_name
-        )
+    profile = await _profile_or_completed(db, auth_session)
 
     logger.info("Signed in %s %s", profile.role, profile.id)
     metrics.record_auth_event(metrics.AUTH_LOGIN)
     cookies.set_session_cookies(response, auth_session)
     return _as_current_user(profile)
+
+
+@router.get("/confirm")
+async def confirm_email(
+    token_hash: str | None = None,
+    db: AsyncSession = Depends(get_session),
+    settings: Settings = Depends(get_settings),
+) -> RedirectResponse:
+    """The link in the confirmation email.
+
+    The provider's own confirmation URL would redirect the browser with the tokens
+    attached, which is exactly what the HttpOnly cookie transport exists to avoid. So
+    the email template points here instead and the token hash is redeemed server-side:
+    the browser leaves this route signed in, holding cookies and no tokens.
+    """
+    base = settings.app_base_url.rstrip("/")
+
+    def back_to_login() -> RedirectResponse:
+        metrics.record_auth_event(metrics.AUTH_CONFIRM, metrics.FAILURE)
+        return RedirectResponse(f"{base}/login.html?error=confirm", status_code=303)
+
+    if not token_hash:
+        logger.info("Confirmation link without a token hash")
+        return back_to_login()
+
+    try:
+        auth_session = await service.confirm_email(token_hash)
+    except AuthError as error:
+        # An expired or already-used link and an unreachable provider are the same
+        # dead end for the browser; the distinction is in the log, not the redirect.
+        logger.info("Email confirmation failed: %s", error)
+        return back_to_login()
+
+    profile = await _profile_or_completed(db, auth_session)
+
+    logger.info("Confirmed %s %s", profile.role, profile.id)
+    metrics.record_auth_event(metrics.AUTH_CONFIRM)
+    response = RedirectResponse(f"{base}{_home_of(profile)}", status_code=303)
+    cookies.set_session_cookies(response, auth_session)
+    return response
+
+
+@router.post("/resend-confirmation", status_code=204)
+async def resend_confirmation(body: EmailRequest) -> Response:
+    """Send the confirmation email again.
+
+    Always 204, whatever the provider says about the address: answering differently
+    for an unknown one would turn this into an account-existence oracle. The single
+    exception is a throttle, which the caller has to see to know that waiting helps.
+    """
+    try:
+        await service.resend_confirmation(body.email)
+    except AuthError as error:
+        metrics.record_auth_event(metrics.AUTH_RESEND, metrics.FAILURE)
+        raise _http_error(error) from error
+
+    metrics.record_auth_event(metrics.AUTH_RESEND)
+    return Response(status_code=204)
 
 
 @router.post("/logout", status_code=204)
@@ -312,21 +429,11 @@ async def oauth_callback(
         logger.warning("OAuth code exchange failed: %s", exchange_error)
         return back_to_login()
 
-    profile = await find_profile(db, auth_session.auth_user_id)
-    if profile is None:
-        first_name, last_name = split_full_name(
-            auth_session.full_name, auth_session.email
-        )
-        profile = await ensure_client_profile(
-            db, _identity_of(auth_session), first_name, last_name
-        )
+    profile = await _profile_or_completed(db, auth_session)
 
-    # Land on the page that belongs to the role, the same split the frontend
-    # guard enforces: a vendor has no profile page, a client no dashboard.
     logger.info("Signed in %s %s via OAuth", profile.role, profile.id)
     metrics.record_auth_event(metrics.AUTH_OAUTH_CALLBACK)
-    destination = "/vendor.html" if profile.role == "vendor" else "/client.html"
-    response = RedirectResponse(f"{base}{destination}", status_code=303)
+    response = RedirectResponse(f"{base}{_home_of(profile)}", status_code=303)
     cookies.clear_oauth_state(response)
     cookies.set_session_cookies(response, auth_session)
     return response
