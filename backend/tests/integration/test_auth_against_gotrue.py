@@ -17,7 +17,14 @@ from uuid import uuid4
 import pytest
 
 from kummo.auth import service, tokens
-from kummo.auth.errors import InvalidCredentials, InvalidToken, SessionExpired
+from kummo.auth.errors import (
+    EmailNotConfirmed,
+    InvalidCredentials,
+    InvalidToken,
+    SessionExpired,
+)
+
+from .mail import confirmation_token_hash
 
 pytestmark = pytest.mark.integration
 
@@ -29,10 +36,17 @@ def unique_email() -> str:
 PASSWORD = "ein-geheimes-passwort"
 
 
+async def sign_up_and_confirm(email: str) -> service.Session:
+    """Sign-up leaves the account unconfirmed, so the session comes from the link."""
+    pending = await service.sign_up(email, PASSWORD)
+    assert isinstance(pending, service.PendingIdentity)
+    return await service.confirm_email(await confirmation_token_hash(email))
+
+
 @pytest.fixture
 async def real_session() -> service.Session:
     """A genuine signed-in session, tokens included."""
-    return await service.sign_up(unique_email(), PASSWORD)
+    return await sign_up_and_confirm(unique_email())
 
 
 # --- Token verification -----------------------------------------------------------
@@ -75,9 +89,30 @@ async def test_a_garbage_token_is_rejected():
 # --- Credentials ------------------------------------------------------------------
 
 
+async def test_signing_up_yields_a_pending_identity_until_the_link_is_clicked():
+    """The hosted project's behaviour, now the local one too."""
+    email = unique_email()
+
+    pending = await service.sign_up(email, PASSWORD)
+
+    assert isinstance(pending, service.PendingIdentity)
+    assert pending.email == email
+    with pytest.raises(EmailNotConfirmed):
+        await service.sign_in(email, PASSWORD)
+
+
+async def test_confirming_the_link_produces_a_verifiable_session():
+    email = unique_email()
+
+    session = await sign_up_and_confirm(email)
+
+    identity = await tokens.verify_access_token(session.access_token)
+    assert identity.email == email
+
+
 async def test_signing_in_returns_a_usable_session():
     email = unique_email()
-    await service.sign_up(email, PASSWORD)
+    await sign_up_and_confirm(email)
 
     signed_in = await service.sign_in(email, PASSWORD)
 
@@ -87,7 +122,7 @@ async def test_signing_in_returns_a_usable_session():
 
 async def test_a_wrong_password_is_translated_to_invalid_credentials():
     email = unique_email()
-    await service.sign_up(email, PASSWORD)
+    await sign_up_and_confirm(email)
 
     with pytest.raises(InvalidCredentials):
         await service.sign_in(email, "das-falsche-passwort")

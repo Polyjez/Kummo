@@ -42,8 +42,25 @@ class Credentials(BaseModel):
     password: str = Field(max_length=PASSWORD_MAX_LENGTH)
 
 
+class EmailRequest(BaseModel):
+    """A bare address, for the paths that only need one (resending a confirmation)."""
+
+    email: EmailStr
+
+
 class CurrentUser(BaseModel):
     id: UUID
     email: str
     role: Role
     display_name: str
+
+
+# Whether registration ends with a usable session depends on the provider's email
+# confirmation setting, so the caller is told which of the two happened rather than
+# having to infer it from the status code.
+RegistrationStatus = Literal["active", "pending_confirmation"]
+
+
+class RegistrationResult(BaseModel):
+    status: RegistrationStatus
+    user: CurrentUser

@@ -39,7 +39,18 @@ outermost-first (`routes` → `dependencies` → `profiles` → `cookies` → `t
 `service.py` the only module that knows the provider is Supabase.
 
 - `POST /api/auth/register/client`, `/register/vendor`, `/login`, `/logout`, `/refresh`,
-  `GET /api/auth/me`, `GET /api/auth/oauth/{provider}`, `GET /api/auth/callback`.
+  `/resend-confirmation`, `GET /api/auth/me`, `GET /api/auth/oauth/{provider}`,
+  `GET /api/auth/callback`, `GET /api/auth/confirm`.
+- **Registration is two steps**, because both projects require email confirmation. Sign-up creates
+  the identity and the profile row but no session, and answers `202 {"status":
+  "pending_confirmation"}`; `login.html` then shows the "check your inbox" panel instead of
+  redirecting. The link in the email points at `GET /api/auth/confirm`, which redeems the token
+  hash server-side and sets the session cookies — the provider's own confirmation URL would hand
+  the tokens to page JS. Signing in before confirming is a `403`. The email template lives at
+  `supabase/templates/confirmation.html` and is pushed to the hosted project with
+  `pnpm exec supabase config push` — `config.toml` configures both projects, so the template is
+  not a dashboard edit. Without that push the hosted project's mails still point at GoTrue's
+  `/verify` and confirmation does not sign anybody in.
 - Session transport is two HttpOnly cookies (`kummo_session`, `kummo_refresh`). No token ever
   reaches page JS.
 - Google OAuth uses PKCE plus a `state` value; both travel in one short-lived HttpOnly cookie
@@ -65,8 +76,15 @@ Covers FR-01, FR-05, and the [authentication flow](sequence-diagrams/00-authenti
   per-IP, but it only ever sees *this backend's* IP, so they act as one global cap shared by every
   user: no per-attacker brute-force protection, and one attacker can lock out everybody's sign-in.
   Needs a deployment decision (reverse proxy vs. app-level vs. shared store).
-- **Registration discloses whether an address exists** (409 on a duplicate), which `auth.js`
-  surfaces in German. A deliberate UX trade-off.
+- **Registration discloses whether a *confirmed* address exists** (409 on a duplicate), which
+  `auth.js` surfaces in German. A deliberate UX trade-off. Signing up an address that exists but
+  is still unconfirmed is *not* disclosed: the provider answers 200 with the same auth user id
+  and re-sends the confirmation, so the route replies 202 and `ensure_*_profile` returns the
+  profile written the first time — the details typed the second time are ignored, including the
+  role. `POST /resend-confirmation` answers 204 for any address at all.
+- **Confirmation email delivery is not production-ready.** The hosted project still uses
+  Supabase's built-in SMTP, which is heavily rate-limited and (on recent projects) only delivers
+  to the team's own addresses. Real users need custom SMTP configured on the project.
 - **An interrupted vendor registration completes as a *client*.** Nothing records the intended
   role, so `ensure_client_profile` on the next sign-in is a guess. Rare now that the insert race is
   handled, but fixing it properly needs a pending-registration record.

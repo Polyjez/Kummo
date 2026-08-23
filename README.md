@@ -71,6 +71,28 @@ A schema change is **two edits**: the migration SQL *and* the matching feature `
 `backend/tests/integration/test_schema_matches_data_model.py` reflects the live schema and fails
 if the two diverge.
 
+## Auth configuration
+
+`supabase/config.toml` is the source of truth for **both** projects — auth settings and email
+templates included. The local stack reads it on `supabase start`; the hosted project gets it with:
+
+```sh
+pnpm exec supabase config push        # applies config.toml to the linked project
+```
+
+Two things to know before pushing:
+
+- `site_url` and `additional_redirect_urls` go up as written. They currently point at
+  `http://localhost:8000`, which is what makes the confirmation link work while the backend runs
+  locally against the hosted project — and what has to change on the first real deployment.
+- `[auth.external.google]` reads its credentials from `SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID`
+  and `SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET`. Export them before pushing, or the push carries an
+  enabled provider with no credentials.
+
+Email confirmation is on in both projects. The confirmation mail is
+`supabase/templates/confirmation.html` and links to `/api/auth/confirm` on this backend rather
+than to GoTrue's `/verify`, so the tokens are redeemed server-side and never reach page JS.
+
 ## Tests
 
 ```sh

@@ -44,6 +44,8 @@ async function request(path, options = {}) {
 function errorMessage(status, body) {
   if (status === 409) return 'Diese E-Mail-Adresse ist bereits registriert.';
   if (status === 401) return 'E-Mail oder Passwort ist falsch.';
+  if (status === 403) return 'Bitte bestätigt zuerst eure E-Mail-Adresse.';
+  if (status === 429) return 'Zu viele Anfragen. Bitte wartet einen Moment.';
   if (status === 422) return 'Bitte überprüft die eingegebenen Daten.';
   if (status === 502) return 'Der Anmeldedienst ist gerade nicht erreichbar.';
   if (body && typeof body.detail === 'string') return body.detail;
@@ -54,6 +56,9 @@ function post(path, payload) {
   return request(path, { method: 'POST', body: JSON.stringify(payload) });
 }
 
+// Registration resolves to { status, user }: 'active' when the provider handed out a
+// session (the cookies are already set), 'pending_confirmation' when the account still
+// has to be confirmed by email. The caller has to look, not assume.
 function registerClient({ email, password, firstName, lastName }) {
   return post('/register/client', {
     email,
@@ -73,6 +78,12 @@ function registerVendor({ email, password, name, address, activityType, phone, w
     phone: phone || null,
     website: website || null,
   });
+}
+
+// Always resolves, whether or not the address has an account: the backend refuses to
+// say. Only a throttle (429) comes back as an error.
+function resendConfirmation(email) {
+  return post('/resend-confirmation', { email });
 }
 
 function login({ email, password }) {
@@ -281,6 +292,7 @@ if (typeof globalThis !== 'undefined') {
     errorMessage,
     registerClient,
     registerVendor,
+    resendConfirmation,
     login,
     logout,
     currentUser,

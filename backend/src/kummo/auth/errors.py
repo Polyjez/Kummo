@@ -27,6 +27,22 @@ class EmailConfirmationRequired(AuthError):
     """Signup succeeded but no session was issued until the address is confirmed."""
 
 
+class EmailNotConfirmed(AuthError):
+    """Sign-in refused because the address has not been confirmed yet."""
+
+
+class ConfirmationLinkInvalid(AuthError):
+    """The confirmation link was already used, expired, or never valid."""
+
+
+class RateLimited(AuthError):
+    """The provider is throttling us — typically confirmation emails."""
+
+
+class ProviderUnavailable(AuthError):
+    """The provider could not be reached at all. A transport failure, not an answer."""
+
+
 class InvalidToken(AuthError):
     """Access token missing, malformed, expired, or not verifiable."""
 

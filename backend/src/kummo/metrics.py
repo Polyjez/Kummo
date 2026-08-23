@@ -60,6 +60,9 @@ activities_created_total = Counter(
 
 SUCCESS = "success"
 FAILURE = "failure"
+# Registration that created the identity but is waiting for the confirmation link:
+# neither a failure nor a finished sign-up.
+PENDING = "pending"
 
 # The fixed set of `event` labels. Named here rather than spelled at each call site: a
 # typo would silently open a second series instead of failing.
@@ -70,6 +73,8 @@ AUTH_LOGOUT = "logout"
 AUTH_REFRESH = "refresh"
 AUTH_OAUTH_START = "oauth_start"
 AUTH_OAUTH_CALLBACK = "oauth_callback"
+AUTH_CONFIRM = "confirm_email"
+AUTH_RESEND = "resend_confirmation"
 
 
 def endpoint_of(request: Request) -> str:

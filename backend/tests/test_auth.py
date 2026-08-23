@@ -19,10 +19,14 @@ from kummo.auth.dependencies import (
 )
 from kummo.auth.errors import (
     AuthError,
+    ConfirmationLinkInvalid,
     EmailAlreadyRegistered,
     EmailConfirmationRequired,
+    EmailNotConfirmed,
     InvalidCredentials,
     OAuthExchangeFailed,
+    ProviderUnavailable,
+    RateLimited,
     SessionExpired,
     WeakPassword,
 )
@@ -57,11 +61,25 @@ def provider(monkeypatch):
             self.session = make_session()
             self.signed_out: list[tuple[str, str]] = []
             self.raises: Exception | None = None
+            # Set to mimic a provider that requires email confirmation: the identity
+            # exists, the session does not.
+            self.pending: service.PendingIdentity | None = None
+            self.resent: list[str] = []
 
         async def sign_up(self, email, password):
             if self.raises:
                 raise self.raises
+            return self.pending or self.session
+
+        async def confirm_email(self, token_hash):
+            if self.raises:
+                raise self.raises
             return self.session
+
+        async def resend_confirmation(self, email):
+            if self.raises:
+                raise self.raises
+            self.resent.append(email)
 
         async def sign_in(self, email, password):
             if self.raises:
@@ -91,6 +109,8 @@ def provider(monkeypatch):
     fake = Provider()
     for name in (
         "sign_up",
+        "confirm_email",
+        "resend_confirmation",
         "sign_in",
         "refresh",
         "sign_out",
@@ -119,8 +139,9 @@ async def test_register_client_creates_profile_and_sets_cookies(
 
     assert response.status_code == 201
     body = response.json()
-    assert body["role"] == "client"
-    assert body["display_name"] == "Anna Schmidt"
+    assert body["status"] == "active"
+    assert body["user"]["role"] == "client"
+    assert body["user"]["display_name"] == "Anna Schmidt"
 
     added = stub_session.added[0]
     assert isinstance(added, clients.Client)
@@ -141,7 +162,7 @@ async def test_register_client_response_carries_no_tokens(client, stub_session, 
     serialized = response.text
     assert provider.session.access_token not in serialized
     assert provider.session.refresh_token not in serialized
-    assert set(response.json()) == {"id", "email", "role", "display_name"}
+    assert set(response.json()["user"]) == {"id", "email", "role", "display_name"}
 
 
 async def test_session_cookies_are_httponly(client, stub_session, provider):
@@ -179,8 +200,8 @@ async def test_register_vendor_creates_vendor_profile(client, stub_session, prov
     )
 
     assert response.status_code == 201
-    assert response.json()["role"] == "vendor"
-    assert response.json()["display_name"] == "Kreativwerkstatt"
+    assert response.json()["user"]["role"] == "vendor"
+    assert response.json()["user"]["display_name"] == "Kreativwerkstatt"
     assert isinstance(stub_session.added[0], vendors.Vendor)
 
 
@@ -227,6 +248,175 @@ async def test_register_duplicate_email_is_409(client, stub_session, provider):
     )
 
     assert response.status_code == 409
+
+
+# --- Email confirmation ----------------------------------------------------------
+
+
+def make_pending(auth_user_id=None) -> service.PendingIdentity:
+    return service.PendingIdentity(
+        auth_user_id=auth_user_id or uuid4(), email="anna@example.de"
+    )
+
+
+async def test_register_client_awaiting_confirmation_creates_the_profile_without_cookies(
+    client, stub_session, provider
+):
+    """The identity exists but has no session yet.
+
+    The profile is still written — the auth user id is already final and the details
+    typed into the form only exist in this request — but nothing is handed out that
+    would let the browser act as if it were signed in.
+    """
+    provider.pending = make_pending()
+
+    response = await client.post(
+        "/api/auth/register/client",
+        json={
+            "email": "anna@example.de",
+            "password": "ein-gutes-passwort",
+            "first_name": "Anna",
+            "last_name": "Schmidt",
+        },
+    )
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "pending_confirmation"
+    assert response.json()["user"]["display_name"] == "Anna Schmidt"
+    assert response.headers.get_list("set-cookie") == []
+
+    added = stub_session.added[0]
+    assert isinstance(added, clients.Client)
+    assert added.auth_user_id == provider.pending.auth_user_id
+
+
+async def test_register_vendor_awaiting_confirmation_keeps_the_business_details(
+    client, stub_session, provider
+):
+    provider.pending = make_pending()
+
+    response = await client.post(
+        "/api/auth/register/vendor",
+        json={
+            "email": "info@werkstatt.de",
+            "password": "ein-gutes-passwort",
+            "name": "Kreativwerkstatt",
+            "address": "Oranienstraße 1, 10999 Berlin",
+            "activity_type": ["kunst"],
+        },
+    )
+
+    assert response.status_code == 202
+    assert response.json()["status"] == "pending_confirmation"
+    added = stub_session.added[0]
+    assert isinstance(added, vendors.Vendor)
+    assert added.activity_type == ["kunst"]
+    assert response.headers.get_list("set-cookie") == []
+
+
+async def test_login_before_confirming_is_403(client, stub_session, provider):
+    provider.raises = EmailNotConfirmed("not confirmed yet")
+
+    response = await client.post(
+        "/api/auth/login", json={"email": "anna@example.de", "password": "geheim1234"}
+    )
+
+    # Not 401: the password was right, and repeating it will not help.
+    assert response.status_code == 403
+
+
+async def test_confirming_signs_the_client_in(client, stub_session, provider):
+    stub_session.scalar_results = [
+        clients.Client(
+            id=uuid4(),
+            auth_user_id=provider.session.auth_user_id,
+            first_name="Anna",
+            last_name="Schmidt",
+            email="anna@example.de",
+        )
+    ]
+
+    response = await client.get(
+        "/api/auth/confirm",
+        params={"token_hash": "hash-from-the-email", "type": "email"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"].endswith("/client.html")
+    issued = {
+        header.split("=", 1)[0] for header in response.headers.get_list("set-cookie")
+    }
+    assert issued == {cookies.SESSION_COOKIE, cookies.REFRESH_COOKIE}
+
+
+async def test_confirming_sends_a_vendor_to_the_dashboard(
+    client, stub_session, provider
+):
+    stub_session.scalar_results = [
+        None,
+        vendors.Vendor(
+            id=uuid4(),
+            auth_user_id=provider.session.auth_user_id,
+            name="Kreativwerkstatt",
+            address="Oranienstraße 1",
+            email="info@werkstatt.de",
+            activity_type=["kunst"],
+        ),
+    ]
+
+    response = await client.get(
+        "/api/auth/confirm",
+        params={"token_hash": "hash-from-the-email"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"].endswith("/vendor.html")
+
+
+async def test_a_spent_confirmation_link_goes_back_to_login(
+    client, stub_session, provider
+):
+    provider.raises = ConfirmationLinkInvalid("already used")
+
+    response = await client.get(
+        "/api/auth/confirm",
+        params={"token_hash": "hash-from-the-email"},
+        follow_redirects=False,
+    )
+
+    assert response.status_code == 303
+    assert response.headers["location"].endswith("/login.html?error=confirm")
+    assert response.headers.get_list("set-cookie") == []
+
+
+async def test_a_confirmation_link_without_a_token_goes_back_to_login(
+    client, stub_session, provider
+):
+    response = await client.get("/api/auth/confirm", follow_redirects=False)
+
+    assert response.status_code == 303
+    assert response.headers["location"].endswith("/login.html?error=confirm")
+
+
+async def test_resending_the_confirmation_is_204(client, stub_session, provider):
+    response = await client.post(
+        "/api/auth/resend-confirmation", json={"email": "anna@example.de"}
+    )
+
+    assert response.status_code == 204
+    assert provider.resent == ["anna@example.de"]
+
+
+async def test_a_throttled_resend_is_429(client, stub_session, provider):
+    provider.raises = RateLimited("wait a minute")
+
+    response = await client.post(
+        "/api/auth/resend-confirmation", json={"email": "anna@example.de"}
+    )
+
+    assert response.status_code == 429
 
 
 # --- Login / logout -------------------------------------------------------------
@@ -686,7 +876,11 @@ async def test_optional_identity_is_none_for_an_anonymous_caller():
     [
         (WeakPassword("too weak"), 400),
         (EmailConfirmationRequired("confirm first"), 400),
-        (AuthError("something we do not map"), 502),
+        (RateLimited("too many"), 429),
+        (ProviderUnavailable("unreachable"), 502),
+        # Regression: an unmapped provider rejection used to be reported as a 502
+        # outage, which is how a live "email not confirmed" 400 read as downtime.
+        (AuthError("something we do not map"), 400),
     ],
 )
 async def test_registration_maps_provider_errors(
@@ -710,13 +904,26 @@ async def test_registration_maps_provider_errors(
 async def test_an_unavailable_provider_does_not_leak_its_message(
     client, stub_session, provider
 ):
-    provider.raises = AuthError("connect timeout to db.supabase.co:5432")
+    provider.raises = ProviderUnavailable("connect timeout to db.supabase.co:5432")
 
     response = await client.post(
         "/api/auth/login", json={"email": "anna@example.de", "password": "geheim1234"}
     )
 
     assert response.status_code == 502
+    assert "supabase" not in response.text.lower()
+
+
+async def test_an_unmapped_provider_message_is_not_echoed_back(
+    client, stub_session, provider
+):
+    provider.raises = AuthError("relation auth.users does not exist on db.supabase.co")
+
+    response = await client.post(
+        "/api/auth/login", json={"email": "anna@example.de", "password": "geheim1234"}
+    )
+
+    assert response.status_code == 400
     assert "supabase" not in response.text.lower()
 
 
