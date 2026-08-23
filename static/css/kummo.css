@@ -888,3 +888,36 @@ th {
     gap: 1.5rem !important;
   }
 }
+
+/* Language switcher: two small toggles in the nav, the active one filled in. */
+.lang-switch {
+  display: inline-flex;
+  border: 2px solid var(--text-yale);
+  border-radius: 999px;
+  overflow: hidden;
+}
+
+.lang-switch button {
+  background: none;
+  border: 0;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.95rem;
+  letter-spacing: 0.02em;
+  color: var(--text-yale);
+  padding: 0.2rem 0.7rem;
+}
+
+.lang-switch button + button {
+  border-left: 2px solid var(--text-yale);
+}
+
+.lang-switch button[aria-pressed="true"] {
+  background: var(--text-yale);
+  color: #fff;
+}
+
+.lang-switch button:hover:not([aria-pressed="true"]) {
+  color: var(--terracotta);
+}

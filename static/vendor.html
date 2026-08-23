@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Anbieter-Dashboard — Kummo</title>
+  <title data-i18n="vendor.page_title">Vendor dashboard — Kummo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
@@ -13,13 +13,23 @@
 <body>
   <header class="site-header">
     <div class="container header-inner">
-      <a class="logo" href="index.html">Kum<span>mo</span></a>
-      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">☰ Menü</button>
-      <nav class="nav-main" id="main-nav">
-        <a href="search.html">Aktivitäten</a>
+      <a class="logo" href="index.html" aria-label="Kummo home"
+        data-i18n-attr="aria-label:common.nav.home_aria">Kum<span>mo</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav"
+        data-i18n="common.nav.menu">☰ Menu</button>
+      <nav class="nav-main" id="main-nav" aria-label="Main navigation"
+        data-i18n-attr="aria-label:common.nav.main_aria">
+        <a href="search.html" data-i18n="common.nav.activities">Activities</a>
         <span id="session-status" hidden></span>
-        <a href="login.html" id="login-link">Anmelden</a>
-        <a href="#" id="logout-btn" hidden>Abmelden</a>
+        <a href="login.html" id="login-link" data-i18n="common.nav.login">Sign in</a>
+        <a href="#" id="logout-btn" hidden data-i18n="common.nav.logout">Sign out</a>
+        <span class="lang-switch" role="group" aria-label="Language"
+          data-i18n-attr="aria-label:common.lang.label">
+          <button type="button" data-lang="en" data-i18n="common.lang.en"
+            data-i18n-attr="title:common.lang.choose_en" title="Show the site in English">EN</button>
+          <button type="button" data-lang="de" data-i18n="common.lang.de"
+            data-i18n-attr="title:common.lang.choose_de" title="Show the site in German">DE</button>
+        </span>
       </nav>
     </div>
   </header>
@@ -27,79 +37,84 @@
   <main class="container" style="padding:2rem 0 4rem">
     <!-- Dashboard content -->
     <div id="dashboard-content" style="display: none;">
-      <h1>Anbieter-Dashboard</h1>
-      <p id="business-name">Demo: <strong>Geschäftsname</strong> — Aktivitäten & Buchungen verwalten</p>
+      <h1 data-i18n="vendor.heading">Vendor dashboard</h1>
+      <p id="business-name"></p>
 
       <div class="dashboard-stats">
         <div class="stat-card">
           <strong id="biz-activity-count">0</strong>
-          <span>Aktivitäten</span>
+          <span data-i18n="vendor.stat_activities">Activities</span>
         </div>
         <div class="stat-card">
           <strong id="biz-booking-count">0</strong>
-          <span>Reservierungen</span>
+          <span data-i18n="vendor.stat_bookings">Reservations</span>
         </div>
       </div>
 
       <section class="section" style="padding-top:0">
-        <h2>Neue Aktivität hinzufügen</h2>
+        <h2 data-i18n="vendor.new_activity_title">Add a new activity</h2>
         <form class="search-panel" style="max-width:640px" onsubmit="event.preventDefault(); addActivity();">
           <div class="form-row">
-            <label>Titel
+            <label><span data-i18n="vendor.title_label">Title</span>
               <input id="activity-title" required>
             </label>
           </div>
           <div class="form-row">
-            <label>Beschreibung
+            <label><span data-i18n="vendor.description">Description</span>
               <textarea id="activity-description" rows="3" style="width:100%;font-family:inherit;font-size:1.125rem;padding:0.65rem" required></textarea>
             </label>
           </div>
           <div class="search-grid">
             <div class="form-row">
-              <label>Preis (€)
+              <label><span data-i18n="vendor.price">Price (€)</span>
                 <input type="number" id="activity-price" min="0" step="0.01" required>
               </label>
             </div>
             <div class="form-row">
-              <label>Max. Teilnehmer
+              <label><span data-i18n="vendor.max_participants">Max. participants</span>
                 <input type="number" id="activity-max-participants" min="1" required>
               </label>
             </div>
             <div class="form-row">
-              <label>Dauer
-                <input type="text" id="activity-duration" placeholder="z.B. 1,5 Stunden" required>
+              <label><span data-i18n="vendor.duration">Duration</span>
+                <input type="text" id="activity-duration" placeholder="e.g. 1.5 hours"
+                  data-i18n-attr="placeholder:vendor.duration_placeholder" required>
               </label>
             </div>
             <div class="form-row">
-              <label>Altersgruppe
-                <input type="text" id="activity-age-group" placeholder="z.B. 6-12 Jahre" required>
+              <label><span data-i18n="vendor.age_group">Age group</span>
+                <input type="text" id="activity-age-group" placeholder="e.g. 6-12 years"
+                  data-i18n-attr="placeholder:vendor.age_group_placeholder" required>
               </label>
             </div>
           </div>
           <div class="form-row">
-            <label>Foto-URL (optional)
-              <input type="url" id="activity-photo" placeholder="https://beispiel.de/bild.jpg">
+            <label><span data-i18n="vendor.photo">Photo URL (optional)</span>
+              <input type="url" id="activity-photo" placeholder="https://example.com/picture.jpg"
+                data-i18n-attr="placeholder:vendor.photo_placeholder">
             </label>
           </div>
           <div class="form-row">
-            <label>Verfügbarkeiten (durch Komma getrennt)
-              <input type="text" id="activity-availability" placeholder="z.B. 15.06.2026 14:00-16:00, 20.06.2026 10:00-12:00">
+            <label><span data-i18n="vendor.availability">Availability (comma separated)</span>
+              <input type="text" id="activity-availability"
+                placeholder="e.g. 15/06/2026 14:00-16:00, 20/06/2026 10:00-12:00"
+                data-i18n-attr="placeholder:vendor.availability_placeholder">
             </label>
           </div>
-          <button type="submit" class="btn btn-primary">Aktivität speichern</button>
+          <button type="submit" class="btn btn-primary" data-i18n="vendor.save_activity">Save activity</button>
         </form>
       </section>
 
       <section class="section">
-        <h2>Meine Aktivitäten</h2>
+        <h2 data-i18n="vendor.my_activities">My activities</h2>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Titel</th>
-                <th>Preis</th>
-                <th>Max. Teilnehmer</th>
-                <th>Altersgruppe</th>
+                <th data-i18n="vendor.table.title">Title</th>
+                <th data-i18n="vendor.table.price">Price</th>
+                <th data-i18n="vendor.table.max_participants">Max. participants</th>
+                <th data-i18n="vendor.table.age_group">Age group</th>
                 <th></th>
               </tr>
             </thead>
@@ -109,30 +124,31 @@
       </section>
 
       <section class="section">
-        <h2>Reservierungen</h2>
+        <h2 data-i18n="vendor.reservations_title">Reservations</h2>
         <div class="table-wrap">
           <table>
             <thead>
               <tr>
-                <th>Aktivität</th>
-                <th>Kunde</th>
-                <th>E-Mail</th>
-                <th>Termin</th>
-                <th>Status</th>
+                <th data-i18n="vendor.table.activity">Activity</th>
+                <th data-i18n="vendor.table.customer">Customer</th>
+                <th data-i18n="vendor.table.email">Email</th>
+                <th data-i18n="vendor.table.slot">Date</th>
+                <th data-i18n="vendor.table.status">Status</th>
               </tr>
             </thead>
             <tbody id="biz-reservations"></tbody>
           </table>
         </div>
-        <p style="margin-top:1rem;font-size:0.95rem">Kalender-Sync: Bookingkit/Regiondo via Pipedream/Zapier</p>
+        <p style="margin-top:1rem;font-size:0.95rem" data-i18n="vendor.calendar_note">Calendar sync: Bookingkit/Regiondo via Pipedream/Zapier</p>
       </section>
     </div>
   </main>
 
   <footer class="site-footer">
-    <p class="footer-bottom container">© 2026 Kummo</p>
+    <p class="footer-bottom container" data-i18n="common.footer.copyright_short">© 2026 Kummo</p>
   </footer>
 
+  <script src="js/i18n.js"></script>
   <script src="js/auth.js"></script>
   <script>
     // =============================================
@@ -146,7 +162,7 @@
 
       document.getElementById('dashboard-content').style.display = 'block';
       document.getElementById('business-name').innerHTML =
-        `<strong>${vendor.display_name}</strong> — Aktivitäten & Buchungen verwalten`;
+        t('vendor.subheading', { name: vendor.display_name });
       return loadDashboardData(vendor.id);
     }
 
@@ -169,7 +185,7 @@
           <td>${a.price}€</td>
           <td>${a.participants_max}</td>
           <td>${a.age_group}</td>
-          <td><a href="activity.html?id=${a.id}" class="btn btn-sm btn-outline">Ansehen</a></td>
+          <td><a href="activity.html?id=${a.id}" class="btn btn-sm btn-outline">${t('vendor.view')}</a></td>
         </tr>
       `).join('');
     }
@@ -179,7 +195,7 @@
     // =============================================
     async function addActivity() {
       if (!currentVendor) {
-        alert('Bitte meldet euch zuerst an.');
+        alert(t('vendor.sign_in_first'));
         return;
       }
 
@@ -202,12 +218,12 @@
 
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        alert(`Fehler: ${err.detail ?? res.status}`);
+        alert(t('vendor.save_failed', { reason: err.detail ?? res.status }));
         return;
       }
 
       const created = await res.json();
-      alert(`Aktivität "${created.title}" wurde gespeichert!`);
+      alert(t('vendor.saved', { title: created.title }));
       document.querySelector('form[onsubmit*="addActivity"]').reset();
       await loadDashboardData(currentVendor.id);
     }
@@ -216,6 +232,8 @@
     // 4. Initialization on page load
     // =============================================
     document.addEventListener('DOMContentLoaded', async () => {
+      // The catalogue first: everything below renders text.
+      await globalThis.KummoI18n.ready;
       // Vendors only: requireUser sends anyone else to the login page.
       const vendor = await globalThis.KummoAuth.requireUser('vendor');
       if (vendor) await openDashboard(vendor);

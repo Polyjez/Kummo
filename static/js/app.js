@@ -1,8 +1,10 @@
 // Kummo — drives every page. Data is loaded from the FastAPI backend (/api/*).
 // Field names mirror the Supabase columns (title, price, name, address,
 // activity_type, age_group, participants_max, duration, picture, vendor_id, ...).
-// UI strings stay in German. Note: there is no `disponibilites`/availability
-// column in the schema, so that data is guarded as optional.
+// Every user-facing string is a key resolved by js/i18n.js against
+// static/i18n/<lang>.json — no literal UI text belongs in here. Note: there is no
+// `disponibilites`/availability column in the schema, so that data is guarded as
+// optional.
 let vendors = [];
 let activities = [];
 
@@ -11,7 +13,10 @@ const STORAGE_PREFS = 'kummo_prefs';
 const STORAGE_BOOKINGS = 'kummo_bookings';
 const STORAGE_FAVORITES = 'kummo_favorites';
 
-function initApp() {
+// The catalogue is loaded before anything renders, so every `t()` below already
+// answers in the visitor's language.
+async function initApp() {
+  await globalThis.KummoI18n?.ready;
   loadData();
 }
 
@@ -36,7 +41,7 @@ async function loadData() {
 }
 
 function showLoadError() {
-  const msg = '<p class="empty-state" style="color:#DC562E">Aktivitäten konnten nicht geladen werden.</p>';
+  const msg = `<p class="empty-state" style="color:#DC562E">${t('activity.load_error')}</p>`;
   const el =
     document.getElementById('featured-activities') ||
     document.getElementById('search-results') ||
@@ -83,8 +88,8 @@ function enrichActivity(activity) {
   const vendor = vendors.find((s) => s.id === activity.vendor_id);
   return {
     ...activity,
-    address: vendor ? vendor.address : 'Adresse unbekannt',
-    vendorName: vendor ? vendor.name : 'Anbieter unbekannt',
+    address: vendor ? vendor.address : t('activity.address_unknown'),
+    vendorName: vendor ? vendor.name : t('activity.vendor_unknown'),
     picture: activity.picture || (vendor ? vendor.picture : 'https://via.placeholder.com/400x250'),
     vendor,
   };
@@ -106,7 +111,7 @@ function activityCardHtml(activity) {
         <h3>${a.title}</h3>
         <p>📍 ${a.address}</p>
         <p>💰 ${a.price} € · 👥 ${a.participants_max} · ⏳ ${a.duration}</p>
-        <a class="btn btn-primary btn-sm stretched-link" href="activity.html?id=${a.id}">Details & Buchen</a>
+        <a class="btn btn-primary btn-sm stretched-link" href="activity.html?id=${a.id}">${t('activity.card_cta')}</a>
       </div>
     </article>`;
 }
@@ -119,7 +124,7 @@ function renderActivityGrid(containerId, list) {
   if (!container) return;
 
   if (!list.length) {
-    container.innerHTML = '<p class="empty-state">Keine Aktivitäten gefunden.</p>';
+    container.innerHTML = `<p class="empty-state">${t('activity.none_found')}</p>`;
     return;
   }
   container.innerHTML = list.map(activityCardHtml).join('');
@@ -230,7 +235,7 @@ function initSearchPage() {
 
 function updateMapHint(count) {
   const map = document.getElementById('map-hint');
-  if (map) map.textContent = `🗺️ ${count} Aktivitäten in Berlin — Google Maps beim Go-Live einbinden`;
+  if (map) map.textContent = t('search.map_hint', { count });
 }
 
 // =============================================
@@ -242,18 +247,18 @@ function showActivityDetail() {
   const container = document.getElementById('activity-detail');
 
   if (!activityId || !container) {
-    if (container) container.innerHTML = '<p class="empty-state">Aktivität nicht gefunden.</p>';
+    if (container) container.innerHTML = `<p class="empty-state">${t('activity.not_found')}</p>`;
     return;
   }
 
   const activity = activities.find((a) => a.id === activityId);
   if (!activity) {
-    container.innerHTML = '<p class="empty-state">Aktivität nicht gefunden. <a href="search.html">Zurück zur Suche</a></p>';
+    container.innerHTML = `<p class="empty-state">${t('activity.not_found_html')}</p>`;
     return;
   }
 
   const a = enrichActivity(activity);
-  document.title = `${a.title} — Kummo`;
+  document.title = t('activity.detail_title', { title: a.title });
 
   container.innerHTML = `
     <div class="detail-hero">
@@ -264,28 +269,28 @@ function showActivityDetail() {
           <span class="tag tag-age">${a.age_group}</span>
         </div>
         <h1>${a.title}</h1>
-        <p class="rating">⭐ ${a.rating || 'Noch nicht bewertet'}</p>
-        <p class="price-large">${a.price} € <span style="font-size:1rem;font-weight:600">pro Person</span></p>
+        <p class="rating">⭐ ${a.rating || t('activity.not_rated')}</p>
+        <p class="price-large">${a.price} € <span style="font-size:1rem;font-weight:600">${t('activity.per_person')}</span></p>
         <p>📍 ${a.address}</p>
-        <p>👥 Max. ${a.participants_max} Teilnehmer · ⏳ ${a.duration}</p>
+        <p>${t('activity.capacity', { count: a.participants_max, duration: a.duration })}</p>
         <p>${a.description}</p>
         <div style="margin-top:1.5rem">
-          <h3>Verfügbare Termine</h3>
+          <h3>${t('activity.slots_title')}</h3>
           <div class="disponibilites">
             ${(a.disponibilites || []).map((d) => `<span class="tag">${d}</span>`).join('')}
           </div>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:0.75rem;margin-top:1.5rem">
-          <button type="button" class="btn btn-primary" id="open-booking">Jetzt buchen</button>
-          <button type="button" class="btn btn-outline" id="toggle-fav">${getFavorites().includes(a.id) ? '★ Favorit' : '☆ Merken'}</button>
+          <button type="button" class="btn btn-primary" id="open-booking">${t('activity.book_now')}</button>
+          <button type="button" class="btn btn-outline" id="toggle-fav">${favoriteLabel(a.id)}</button>
         </div>
       </div>
     </div>
     <div class="map-panel">
-      <div class="map-placeholder">Karte: ${a.address}</div>
+      <div class="map-placeholder">${t('activity.map_label', { address: a.address })}</div>
     </div>
     <section class="section">
-      <h2>Das könnte euch auch gefallen</h2>
+      <h2>${t('activity.similar_title')}</h2>
       <div class="activity-grid" id="similar-activities"></div>
     </section>`;
 
@@ -297,8 +302,12 @@ function showActivityDetail() {
   document.getElementById('open-booking')?.addEventListener('click', () => openBookingModal(a));
   document.getElementById('toggle-fav')?.addEventListener('click', (e) => {
     toggleFavorite(a.id);
-    e.target.textContent = getFavorites().includes(a.id) ? '★ Favorit' : '☆ Merken';
+    e.target.textContent = favoriteLabel(a.id);
   });
+}
+
+function favoriteLabel(id) {
+  return getFavorites().includes(id) ? t('activity.favorite_on') : t('activity.favorite_off');
 }
 
 // =============================================
@@ -322,14 +331,14 @@ function openBookingModal(activity) {
 
   overlay.innerHTML = `
     <div class="modal" role="dialog" aria-labelledby="booking-title">
-      <h2 id="booking-title">Buchung: ${activity.title}</h2>
+      <h2 id="booking-title">${t('booking.modal_title', { title: activity.title })}</h2>
       <form id="booking-form">
-        <div class="form-row"><label for="b-name">Name</label><input id="b-name" name="name" required autocomplete="name"></div>
-        <div class="form-row"><label for="b-email">E-Mail</label><input id="b-email" name="email" type="email" required autocomplete="email"></div>
-        <div class="form-row"><label for="b-slot">Termin</label><select id="b-slot" name="slot" required>${slots}</select></div>
-        <div class="form-row"><label for="b-qty">Personen</label><input id="b-qty" name="qty" type="number" min="1" max="${activity.participants_max}" value="2" required></div>
-        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:0.5rem">Buchen (${activity.price} € / Person)</button>
-        <button type="button" class="btn btn-outline" style="width:100%;margin-top:0.5rem" data-close>Abbrechen</button>
+        <div class="form-row"><label for="b-name">${t('booking.name')}</label><input id="b-name" name="name" required autocomplete="name"></div>
+        <div class="form-row"><label for="b-email">${t('booking.email')}</label><input id="b-email" name="email" type="email" required autocomplete="email"></div>
+        <div class="form-row"><label for="b-slot">${t('booking.slot')}</label><select id="b-slot" name="slot" required>${slots}</select></div>
+        <div class="form-row"><label for="b-qty">${t('booking.people')}</label><input id="b-qty" name="qty" type="number" min="1" max="${activity.participants_max}" value="2" required></div>
+        <button type="submit" class="btn btn-primary" style="width:100%;margin-top:0.5rem">${t('booking.submit', { price: activity.price })}</button>
+        <button type="button" class="btn btn-outline" style="width:100%;margin-top:0.5rem" data-close>${t('booking.cancel')}</button>
       </form>
     </div>`;
 
@@ -347,11 +356,13 @@ function openBookingModal(activity) {
       slot: fd.get('slot'),
       qty,
       total: activity.price * qty,
-      status: 'bestätigt',
+      // The status is stored as a code, not as text: the booking outlives the
+      // language it was made in.
+      status: 'confirmed',
       date: new Date().toISOString(),
     });
     overlay.classList.remove('open');
-    alert(`Danke, ${fd.get('name')}! Ihre Buchung ist bestätigt.`);
+    alert(t('booking.confirmation', { name: fd.get('name') }));
   });
 }
 
@@ -429,7 +440,7 @@ async function initClientPage() {
       e.preventDefault();
       const fd = new FormData(form);
       savePrefs(Object.fromEntries(fd.entries()));
-      alert('Einstellungen gespeichert.');
+      alert(t('client.saved'));
       renderActivityGrid('recommendations', getRecommendations(getPrefs()));
     });
   }
@@ -440,14 +451,20 @@ async function initClientPage() {
   const bookings = getBookings();
   if (bookingsEl) {
     bookingsEl.innerHTML = bookings.length
-      ? `<div class="table-wrap"><table><thead><tr><th>Aktivität</th><th>Termin</th><th>Preis</th><th>Status</th></tr></thead><tbody>
-        ${bookings.map((b) => `<tr><td>${b.activityName}</td><td>${b.slot}</td><td>${b.total} €</td><td>${b.status}</td></tr>`).join('')}
+      ? `<div class="table-wrap"><table><thead><tr><th>${t('client.table.activity')}</th><th>${t('client.table.slot')}</th><th>${t('client.table.price')}</th><th>${t('client.table.status')}</th></tr></thead><tbody>
+        ${bookings.map((b) => `<tr><td>${b.activityName}</td><td>${b.slot}</td><td>${b.total} €</td><td>${bookingStatusLabel(b.status)}</td></tr>`).join('')}
       </tbody></table></div>`
-      : '<p>Noch keine Buchungen.</p>';
+      : `<p>${t('client.no_bookings')}</p>`;
   }
 
   const favIds = getFavorites();
   renderActivityGrid('favorites-list', activities.filter((a) => favIds.includes(a.id)));
+}
+
+// Bookings made before the status became a code — and any status the catalogue
+// does not know — are shown as they were stored rather than as a missing key.
+function bookingStatusLabel(status) {
+  return t(`booking.status.${status}`, { defaultValue: status });
 }
 
 function getRecommendations(prefs) {
@@ -491,10 +508,10 @@ function initAdminDashboard() {
       ? bookings
           .map((b) => {
             const act = activities.find((a) => a.id === b.activityId);
-            return `<tr><td>—</td><td>${act ? enrichActivity(act).vendorName : '—'}</td><td>${b.activityName}</td><td>${b.name}</td><td>${b.slot}</td><td>${b.status}</td><td>${b.total} €</td></tr>`;
+            return `<tr><td>—</td><td>${act ? enrichActivity(act).vendorName : '—'}</td><td>${b.activityName}</td><td>${b.name}</td><td>${b.slot}</td><td>${bookingStatusLabel(b.status)}</td><td>${b.total} €</td></tr>`;
           })
           .join('')
-      : '<tr><td colspan="7">Noch keine Buchungen</td></tr>';
+      : `<tr><td colspan="7">${t('admin.no_bookings')}</td></tr>`;
   }
 }
 
@@ -523,12 +540,14 @@ function initChatbot() {
 
   document.getElementById('chat-send')?.addEventListener('click', () => {
     if (!input?.value.trim()) return;
-    messages.innerHTML += `<div><strong>Sie:</strong> ${input.value}</div>`;
-    const t = input.value.toLowerCase();
-    let reply = 'Fragen Sie z. B. „Wie buche ich?" oder „Aktivitäten für Kleinkinder?"';
-    if (t.includes('buch')) reply = 'Aktivität wählen → „Jetzt buchen" → Termin und Personenzahl eingeben.';
-    if (t.includes('klein') || t.includes('3') || t.includes('5')) reply = 'Für Kleinkinder: Filter „0–5 Jahre" oder Aktivitäten wie Kamishibai (ab 3 Jahre).';
-    messages.innerHTML += `<div class="bot"><strong>Kummo:</strong> ${reply}</div>`;
+    messages.innerHTML += `<div><strong>${t('common.chat.you')}</strong> ${input.value}</div>`;
+    // Matched in both languages: the visitor types in whichever one they read the
+    // page in, and these are the words each question tends to contain.
+    const question = input.value.toLowerCase();
+    let reply = t('common.chat.reply_default');
+    if (/buch|book/.test(question)) reply = t('common.chat.reply_booking');
+    if (/klein|toddler|kind|child|3|5/.test(question)) reply = t('common.chat.reply_toddlers');
+    messages.innerHTML += `<div class="bot"><strong>${t('common.chat.bot')}</strong> ${reply}</div>`;
     input.value = '';
     messages.scrollTop = messages.scrollHeight;
   });
@@ -536,7 +555,7 @@ function initChatbot() {
 
 // =============================================
 // Final initialization.
-// The header's session indicator (name, role, Anmelden/Abmelden) is owned by
+// The header's session indicator (name, role, sign in / sign out) is owned by
 // auth.js, which initializes itself on every page — nothing to do here.
 // =============================================
 document.addEventListener('DOMContentLoaded', () => {
@@ -562,6 +581,7 @@ if (typeof globalThis !== 'undefined') {
     addBooking,
     getFavorites,
     toggleFavorite,
+    bookingStatusLabel,
     STORAGE_PREFS,
     STORAGE_BOOKINGS,
     STORAGE_FAVORITES,

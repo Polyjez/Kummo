@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Mein Profil — Kummo</title>
+  <title data-i18n="client.page_title">My profile — Kummo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
@@ -13,75 +13,87 @@
 <body>
   <header class="site-header">
     <div class="container header-inner">
-      <a class="logo" href="index.html">Kum<span>mo</span></a>
-      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">☰ Menü</button>
-      <nav class="nav-main" id="main-nav">
-        <a href="search.html">Aktivitäten</a>
+      <a class="logo" href="index.html" aria-label="Kummo home"
+        data-i18n-attr="aria-label:common.nav.home_aria">Kum<span>mo</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav"
+        data-i18n="common.nav.menu">☰ Menu</button>
+      <nav class="nav-main" id="main-nav" aria-label="Main navigation"
+        data-i18n-attr="aria-label:common.nav.main_aria">
+        <a href="search.html" data-i18n="common.nav.activities">Activities</a>
         <span id="session-status" hidden></span>
-        <a href="login.html" id="login-link">Anmelden</a>
-        <a href="#" id="logout-btn" hidden>Abmelden</a>
+        <a href="login.html" id="login-link" data-i18n="common.nav.login">Sign in</a>
+        <a href="#" id="logout-btn" hidden data-i18n="common.nav.logout">Sign out</a>
+        <span class="lang-switch" role="group" aria-label="Language"
+          data-i18n-attr="aria-label:common.lang.label">
+          <button type="button" data-lang="en" data-i18n="common.lang.en"
+            data-i18n-attr="title:common.lang.choose_en" title="Show the site in English">EN</button>
+          <button type="button" data-lang="de" data-i18n="common.lang.de"
+            data-i18n-attr="title:common.lang.choose_de" title="Show the site in German">DE</button>
+        </span>
       </nav>
     </div>
   </header>
 
   <main class="container" style="padding:2rem 0 4rem">
-    <h1>Mein Profil</h1>
-    <p>Eure Daten und Vorlieben — für personalisierte Empfehlungen</p>
+    <h1 data-i18n="client.heading">My profile</h1>
+    <p data-i18n="client.subtitle">Your details and preferences — for personalised recommendations</p>
 
     <section class="section" style="padding-top:1rem">
-      <h2>Persönliche Daten & Vorlieben</h2>
+      <h2 data-i18n="client.prefs_title">Personal details &amp; preferences</h2>
       <form id="prefs-form" class="search-panel" style="max-width:520px">
         <div class="form-row">
-          <label for="name">Name</label>
+          <label for="name" data-i18n="client.name">Name</label>
           <input id="name" name="name" autocomplete="name">
         </div>
         <div class="form-row">
-          <label for="email">E-Mail</label>
+          <label for="email" data-i18n="client.email">Email</label>
           <input id="email" name="email" type="email" autocomplete="email">
         </div>
         <div class="form-row">
-          <label for="age">Bevorzugte Altersgruppe</label>
+          <label for="age" data-i18n="client.preferred_age">Preferred age group</label>
           <select id="age" name="age">
             <option value="">—</option>
-            <option value="0-5">0–5 Jahre</option>
-            <option value="6-12">6–12 Jahre</option>
-            <option value="13-18">13–18 Jahre</option>
-            <option value="senioren">Senioren</option>
-            <option value="familie">Ganze Familie</option>
+            <option value="0-5" data-i18n="filters.ages.toddlers">0–5 years</option>
+            <option value="6-12" data-i18n="filters.ages.children">6–12 years</option>
+            <option value="13-18" data-i18n="filters.ages.teens">13–18 years</option>
+            <option value="senioren" data-i18n="filters.ages.seniors">Seniors</option>
+            <option value="familie" data-i18n="filters.ages.family">Whole family</option>
           </select>
         </div>
         <div class="form-row">
-          <label for="maxBudget">Budget (max. € pro Person)</label>
+          <label for="maxBudget" data-i18n="client.budget">Budget (max. € per person)</label>
           <input id="maxBudget" name="maxBudget" type="number" min="0">
         </div>
         <div class="form-row">
-          <label for="location">Bevorzugter Stadtteil</label>
-          <input id="location" name="location" placeholder="z. B. Prenzlauer Berg">
+          <label for="location" data-i18n="client.district">Preferred district</label>
+          <input id="location" name="location" placeholder="e.g. Prenzlauer Berg"
+            data-i18n-attr="placeholder:client.district_placeholder">
         </div>
-        <button type="submit" class="btn btn-primary">Speichern</button>
+        <button type="submit" class="btn btn-primary" data-i18n="client.save">Save</button>
       </form>
     </section>
 
     <section class="section">
-      <h2>Für euch empfohlen</h2>
+      <h2 data-i18n="client.recommendations_title">Recommended for you</h2>
       <div class="activity-grid" id="recommendations"></div>
     </section>
 
     <section class="section">
-      <h2>Buchungshistorie</h2>
+      <h2 data-i18n="client.history_title">Booking history</h2>
       <div id="booking-history"></div>
     </section>
 
     <section class="section">
-      <h2>Favoriten</h2>
+      <h2 data-i18n="client.favorites_title">Favorites</h2>
       <div class="activity-grid" id="favorites-list"></div>
     </section>
   </main>
 
   <footer class="site-footer">
-    <p class="footer-bottom container">© 2026 Kummo</p>
+    <p class="footer-bottom container" data-i18n="common.footer.copyright_short">© 2026 Kummo</p>
   </footer>
 
+  <script src="js/i18n.js" defer></script>
   <script src="js/auth.js" defer></script>
   <script src="js/app.js" defer></script>
 </body>

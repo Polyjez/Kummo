@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="de">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Aktivitäten suchen — Kummo</title>
+  <title data-i18n="search.page_title">Search activities — Kummo</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Dancing+Script:wght@600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
@@ -13,65 +13,77 @@
 <body>
   <header class="site-header">
     <div class="container header-inner">
-      <a class="logo" href="index.html">Kum<span>mo</span></a>
-      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav">☰ Menü</button>
-      <nav class="nav-main" id="main-nav">
-        <a href="search.html" aria-current="page">Aktivitäten</a>
+      <a class="logo" href="index.html" aria-label="Kummo home"
+        data-i18n-attr="aria-label:common.nav.home_aria">Kum<span>mo</span></a>
+      <button class="nav-toggle" type="button" aria-expanded="false" aria-controls="main-nav"
+        data-i18n="common.nav.menu">☰ Menu</button>
+      <nav class="nav-main" id="main-nav" aria-label="Main navigation"
+        data-i18n-attr="aria-label:common.nav.main_aria">
+        <a href="search.html" aria-current="page" data-i18n="common.nav.activities">Activities</a>
         <span id="session-status" hidden></span>
-        <a href="login.html" id="login-link">Anmelden</a>
-        <a href="#" id="logout-btn" hidden>Abmelden</a>
+        <a href="login.html" id="login-link" data-i18n="common.nav.login">Sign in</a>
+        <a href="#" id="logout-btn" hidden data-i18n="common.nav.logout">Sign out</a>
+        <span class="lang-switch" role="group" aria-label="Language"
+          data-i18n-attr="aria-label:common.lang.label">
+          <button type="button" data-lang="en" data-i18n="common.lang.en"
+            data-i18n-attr="title:common.lang.choose_en" title="Show the site in English">EN</button>
+          <button type="button" data-lang="de" data-i18n="common.lang.de"
+            data-i18n-attr="title:common.lang.choose_de" title="Show the site in German">DE</button>
+        </span>
       </nav>
     </div>
   </header>
 
   <main class="container">
-    <h1 style="padding-top:1.5rem">Aktivitäten in Berlin</h1>
-    <p>Rasteransicht mit Karte — Filter links, Ergebnisse rechts</p>
+    <h1 style="padding-top:1.5rem" data-i18n="search.heading">Activities in Berlin</h1>
+    <p data-i18n="search.subtitle">Grid view with map — filters on the left, results on the right</p>
 
     <div class="page-layout">
-      <aside class="filters-sidebar" aria-label="Filter">
-        <h2>Filter</h2>
+      <aside class="filters-sidebar" aria-label="Filters" data-i18n-attr="aria-label:search.filters_aria">
+        <h2 data-i18n="search.filters_title">Filters</h2>
         <form id="filter-form">
           <div class="filter-group">
-            <label for="f-q">Stichwort</label>
-            <input type="search" id="f-q" name="q" placeholder="Suche…">
+            <label for="f-q" data-i18n="filters.keyword">Keyword</label>
+            <input type="search" id="f-q" name="q" placeholder="Search…"
+              data-i18n-attr="placeholder:filters.search_placeholder">
           </div>
           <div class="filter-group">
-            <label for="f-age">Altersgruppe</label>
+            <label for="f-age" data-i18n="filters.age_group">Age group</label>
             <select id="f-age" name="age">
-              <option value="all">Alle</option>
-              <option value="0-5">0–5 Jahre</option>
-              <option value="6-12">6–12 Jahre</option>
-              <option value="13-18">13–18 Jahre</option>
-              <option value="senioren">Senioren</option>
-              <option value="familie">Ganze Familie</option>
+              <option value="all" data-i18n="filters.ages.all">All</option>
+              <option value="0-5" data-i18n="filters.ages.toddlers">0–5 years</option>
+              <option value="6-12" data-i18n="filters.ages.children">6–12 years</option>
+              <option value="13-18" data-i18n="filters.ages.teens">13–18 years</option>
+              <option value="senioren" data-i18n="filters.ages.seniors">Seniors</option>
+              <option value="familie" data-i18n="filters.ages.family">Whole family</option>
             </select>
           </div>
           <div class="filter-group">
-            <label for="f-cat">Kategorie</label>
+            <label for="f-cat" data-i18n="filters.category">Category</label>
             <select id="f-cat" name="category">
-              <option value="all">Alle</option>
-              <option value="kunst">🎨 Kunst</option>
-              <option value="sport">⚽ Sport</option>
-              <option value="kochen">👨‍🍳 Kochen</option>
-              <option value="musik">🎵 Musik</option>
-              <option value="natur">🌿 Natur</option>
-              <option value="theater">🎭 Theater</option>
-              <option value="wissenschaft">🔬 Wissenschaft</option>
-              <option value="senioren">☕ Senioren</option>
+              <option value="all" data-i18n="filters.categories.all">All</option>
+              <option value="kunst" data-i18n="filters.categories.art_short">🎨 Art</option>
+              <option value="sport" data-i18n="filters.categories.sport">⚽ Sport</option>
+              <option value="kochen" data-i18n="filters.categories.cooking">👨‍🍳 Cooking</option>
+              <option value="musik" data-i18n="filters.categories.music">🎵 Music</option>
+              <option value="natur" data-i18n="filters.categories.nature_short">🌿 Nature</option>
+              <option value="theater" data-i18n="filters.categories.theatre">🎭 Theatre</option>
+              <option value="wissenschaft" data-i18n="filters.categories.science_short">🔬 Science</option>
+              <option value="senioren" data-i18n="filters.categories.seniors">☕ Seniors</option>
             </select>
           </div>
           <div class="filter-group">
-            <label for="f-max">Max. Preis (€)</label>
+            <label for="f-max" data-i18n="filters.max_price">Max. price (€)</label>
             <input type="number" id="f-max" name="maxPrice" min="0" step="1">
           </div>
-          <button type="submit" class="btn btn-primary" style="width:100%">Filter anwenden</button>
+          <button type="submit" class="btn btn-primary" style="width:100%"
+            data-i18n="filters.apply">Apply filters</button>
         </form>
       </aside>
 
       <div>
-        <div class="map-panel" role="img" aria-label="Karte Berlin">
-          <div class="map-placeholder" id="map-hint">Karte wird geladen…</div>
+        <div class="map-panel" role="img" aria-label="Map of Berlin" data-i18n-attr="aria-label:search.map_aria">
+          <div class="map-placeholder" id="map-hint" data-i18n="search.map_loading">Loading map…</div>
         </div>
         <div class="activity-grid" id="search-results"></div>
       </div>
@@ -79,17 +91,22 @@
   </main>
 
   <footer class="site-footer">
-    <p class="footer-bottom container">© 2026 Kummo</p>
+    <p class="footer-bottom container" data-i18n="common.footer.copyright_short">© 2026 Kummo</p>
   </footer>
 
-  <button type="button" class="chat-fab" id="chat-fab" aria-label="Chat">💬</button>
-  <div class="chat-panel" id="chat-panel">
-    <strong>Kummo Hilfe</strong>
+  <button type="button" class="chat-fab" id="chat-fab" aria-label="Open chat"
+    data-i18n-attr="aria-label:common.chat.open_aria">💬</button>
+  <div class="chat-panel" id="chat-panel" role="region" aria-label="Help chat"
+    data-i18n-attr="aria-label:common.chat.region_aria">
+    <strong data-i18n="common.chat.title">Kummo help</strong>
     <div class="chat-messages" id="chat-messages"></div>
-    <input type="text" id="chat-input" placeholder="Ihre Frage" aria-label="Frage">
-    <button type="button" class="btn btn-sm btn-primary" id="chat-send" style="margin-top:0.5rem;width:100%">Senden</button>
+    <input type="text" id="chat-input" placeholder="e.g. How do I book?" aria-label="Your question"
+      data-i18n-attr="placeholder:common.chat.placeholder;aria-label:common.chat.input_aria">
+    <button type="button" class="btn btn-sm btn-primary" id="chat-send" style="margin-top:0.5rem;width:100%"
+      data-i18n="common.chat.send">Send</button>
   </div>
 
+  <script src="js/i18n.js" defer></script>
   <script src="js/auth.js" defer></script>
   <script src="js/app.js" defer></script>
 </body>

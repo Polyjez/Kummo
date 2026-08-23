@@ -10,6 +10,7 @@ Architecture Decision Records for Kummo. Each ADR captures a **settled** decisio
 | [0002](0002-booking-build-vs-buy.md) | Booking platform: build in-house vs. buy | Accepted | [business/booking-build-vs-buy](../open_questions/business/booking-build-vs-buy.md) — 1 open |
 | [0003](0003-persistence-sqlalchemy.md) | Persistence layer: SQLAlchemy 2.0 + Alembic | Accepted — migration strategy amended by 0004 | [technical/persistence](../open_questions/technical/persistence.md) — 1 open |
 | [0004](0004-supabase-cli-single-migration-chain.md) | Schema migrations: the Supabase CLI as the single DDL chain | Accepted | — |
+| [0005](0005-localization-json-catalogues.md) | Localization: English source, JSON catalogues, no library | Accepted | — |
 
 ## Not yet captured
 

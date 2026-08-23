@@ -106,6 +106,31 @@ pnpm install && pnpm test            # frontend regression tests (Vitest + jsdom
 pnpm run test:watch
 ```
 
+## Translations
+
+The interface is available in English and German. All the text lives in one file per language:
+
+```
+static/i18n/en.json    # English — the source language
+static/i18n/de.json    # German
+```
+
+To correct or add wording, edit the value on the right of the colon and reload the page — nothing
+has to be built or restarted. Keep the keys on the left untouched, and keep `{{placeholders}}`
+exactly as they are: they are filled in with a name, a price or a count when the page is shown.
+
+To add a language, copy `en.json` to `static/i18n/<code>.json`, translate the values, and add the
+code to `SUPPORTED` at the top of `static/js/i18n.js`.
+
+The full guide — placeholders, plurals, how to check your work — is
+[Docs/engineering/translations.md](Docs/engineering/translations.md).
+
+`pnpm test` checks that every language file has the same keys as `en.json` and that no page uses a
+key nobody defines — run it after editing a catalogue.
+
+Visitors get their browser's language when it is one we support, English otherwise, and can switch
+with the EN/DE toggle in the header; the choice is remembered in that browser.
+
 ## Documentation site
 
 ```sh

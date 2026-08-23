@@ -33,6 +33,7 @@ Docs/
 |---|---|
 | [engineering/specification.md](engineering/specification.md) | Consolidated developer specification (entry point; some sections `TODO`). |
 | [engineering/data-model.md](engineering/data-model.md) | Conceptual ER model + settled assumptions. |
+| [engineering/translations.md](engineering/translations.md) | How to update the interface text (EN/DE) — written for non-developers. |
 | [engineering/sequence-diagrams/](engineering/sequence-diagrams/) | Use-case flow diagrams (frontend → API → Supabase). |
 
 ## Decisions (ADRs) — [decisions/](decisions/)
@@ -45,6 +46,7 @@ Each ADR is a **settled** decision; its open points are gathered under [open_que
 | [0002](decisions/0002-booking-build-vs-buy.md) | Booking platform: build in-house vs. buy |
 | [0003](decisions/0003-persistence-sqlalchemy.md) | Persistence layer: SQLAlchemy 2.0 + Alembic |
 | [0004](decisions/0004-supabase-cli-single-migration-chain.md) | Schema migrations: the Supabase CLI as the single DDL chain |
+| [0005](decisions/0005-localization-json-catalogues.md) | Localization: English source, JSON catalogues, no library |
 
 ## Open questions — [open_questions/](open_questions/)
 
