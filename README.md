@@ -140,6 +140,20 @@ pnpm install && pnpm test            # frontend regression tests (Vitest + jsdom
 pnpm run test:watch
 ```
 
+## Releasing
+
+The version lives in four files (`backend/pyproject.toml`, `backend/uv.lock`, `package.json`,
+and the `version=` FastAPI serves at `/docs`). One command moves them together:
+
+```sh
+./bump-version.sh minor    # 0.2.0 -> 0.3.0
+./bump-version.sh 1.0.0    # or set it outright
+```
+
+`uv version` decides the number and re-locks; the script copies it into the files uv does not
+know about, then prints the diff for review. It refuses to run when a version file already has
+uncommitted changes, so the result is always a clean `chore(release): X.Y.Z` commit.
+
 ## Continuous integration
 
 [`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push to `main` and every

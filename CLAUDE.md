@@ -87,14 +87,23 @@ Then open `http://localhost:8000`. Do not open HTML files with `file://` — the
 
 ## Versioning
 
-**A change to the source bumps the version, in the same commit.** The version appears in
-**three** files and they must stay in step — there is no single source of truth to generate the
-others from:
+**A change to the source bumps the version, in the same commit.** Use the helper — it moves
+all four places at once and refuses to run on a dirty version file:
+
+```sh
+./bump-version.sh minor    # 0.2.0 -> 0.3.0
+./bump-version.sh 1.0.0    # or set it outright
+```
+
+`uv version` owns the number (it rewrites `backend/pyproject.toml` and re-locks); the script
+copies what uv landed on into the two files uv knows nothing about. Doing it by hand means
+touching all four, since nothing generates one from another:
 
 | File | Field |
 |---|---|
+| `backend/pyproject.toml` | `version` — the one uv edits |
+| `backend/uv.lock` | the `kummo` package entry; **CI runs `uv sync --locked`, so a stale lock fails the build** |
 | `package.json` | `"version"` |
-| `backend/pyproject.toml` | `version` |
 | `backend/src/kummo/main.py` | the `version=` argument to `FastAPI(...)` — this is what `/docs` and the OpenAPI schema advertise |
 
 Semantic versioning, keyed to the conventional-commit type the message already carries:
