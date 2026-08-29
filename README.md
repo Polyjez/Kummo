@@ -140,6 +140,39 @@ pnpm install && pnpm test            # frontend regression tests (Vitest + jsdom
 pnpm run test:watch
 ```
 
+## Continuous integration
+
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs on every push to `main` and every
+pull request, in three parallel jobs: the backend route tests, the frontend Vitest suite, and an
+image build followed by a smoke test that starts the container and waits for `GET /` to serve the
+site. The integration tests are **not** part of it — they need a live Supabase stack, so they stay
+a local task (see *Tests* above).
+
+A workflow edit can be checked before pushing, with two tools neither the app nor the tests
+need (on Arch: `sudo pacman -S actionlint act`):
+
+```sh
+actionlint                     # static check: invalid keys, expressions, shellcheck on `run:`
+act pull_request -j backend    # actually run a job, in containers
+act pull_request -j frontend
+```
+
+`actionlint` is the cheap one and catches most wiring mistakes; reach for `act` when the *shape*
+of the workflow changed (triggers, `env:` plumbing, job structure). For the job contents it adds
+little — it runs the same `uv run pytest -m 'not integration'` and `pnpm test` documented above.
+
+> **`act` needs a Docker daemon.** Under Podman, expose the socket first:
+> `systemctl --user start podman.socket` and
+> `export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/podman/podman.sock`. This is unrelated to the
+> `supabase start` caveat at the top — that one no socket fixes.
+>
+> **`-j image` does not work locally.** The job builds a container (so it would need
+> Docker-in-Docker) and its `type=gha` layer cache has no backend outside GitHub. Build and smoke
+> test it by hand instead — see *Running in Docker* above.
+>
+> The caching actions degrade to no-ops off GitHub, so a green `act` run says nothing about
+> whether the real cache is hit.
+
 ## Translations
 
 The interface is available in English and German. All the text lives in one file per language:
