@@ -85,6 +85,29 @@ Then open `http://localhost:8000`. Do not open HTML files with `file://` — the
 - Tests live in `test/app.test.js` and cover `app.js`'s pure logic (filtering, search-URL building, card HTML, vendor enrichment, localStorage helpers) — including guards for the bugs already fixed (escaped `${}` template literals, undefined `STORAGE_*` constants).
 - `app.js` is a classic browser script, so it can't be `import`ed normally. Its bottom block attaches a `globalThis.KummoApp` API (incl. a test-only `__setData(vendors, activities)` to inject fixture data). This is inert in the browser. When adding a function worth testing, add it to that export object.
 
+## Versioning
+
+**A change to the source bumps the version, in the same commit.** The version appears in
+**three** files and they must stay in step — there is no single source of truth to generate the
+others from:
+
+| File | Field |
+|---|---|
+| `package.json` | `"version"` |
+| `backend/pyproject.toml` | `version` |
+| `backend/src/kummo/main.py` | the `version=` argument to `FastAPI(...)` — this is what `/docs` and the OpenAPI schema advertise |
+
+Semantic versioning, keyed to the conventional-commit type the message already carries:
+
+- `feat(...)` → minor (`0.1.0` → `0.2.0`)
+- `fix(...)`, `refactor(...)`, `perf(...)` → patch (`0.1.0` → `0.1.1`)
+- a breaking change to the API or the schema → major
+- `docs:`, `chore:`, `test:`, `ci(...)` → **no bump**: they change nothing a caller can observe
+
+**One bump per feature branch, not per commit.** Branches are squashed on merge, so a bump on
+every commit would produce versions no merged commit corresponds to. Bump once, on the commit
+that carries the behaviour change; later commits on the same branch leave it alone.
+
 ## Architecture
 
 **Pages** (each is a standalone HTML file, all sharing `js/app.js`):
