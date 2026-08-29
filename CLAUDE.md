@@ -44,6 +44,16 @@ on port 8000. No Docker required. Migrations are not applied automatically in th
 Every `.env.*` file must contain `SUPABASE_URL`, `SUPABASE_API_KEY` and `DATABASE_URL` —
 see `backend/.env.example`.
 
+### Container
+`docker compose up --build` (compose reads `.env` — `cp .env.prod .env`), or
+`docker run -p 8000:8000 --env-file .env.prod kummo`. The image runs `fastapi run` as a
+non-root user and serves the site from `STATIC_DIR`, set to `/app/static` in the image.
+
+It starts **no database and applies no migrations** — those stay Supabase CLI tasks on the
+host. `.env.local` does not work unchanged inside a container: its `127.0.0.1` is the
+container itself, not the host's Supabase stack. Podman builds and runs the image fine; the
+Podman caveat in `README.md` is about `supabase start`, not this image.
+
 ### Manual start (either mode)
 ```bash
 # Export credentials first
@@ -153,6 +163,9 @@ Kummo/
   supabase/                    # Supabase CLI config, auth/extension migrations, seed.sql
     snippets/                  # one-off SQL run by hand against the hosted project
   test/                        # Vitest frontend tests
+  Dockerfile                   # backend + static site in one image, served on :8000
+  .dockerignore                # build context is the repo root, so keep it tight
+  compose.yaml                 # runs that image against an existing Supabase project
   backend/                     # FastAPI Python backend
     pyproject.toml             # uv project config
     .python-version            # pins Python 3.12
@@ -190,6 +203,12 @@ the CWD, so it only holds while you are in `backend/`.
 
 This stays compatible with `start-kummo.sh`, which exports the variables itself: uv only sets what
 is not already in the environment, and pydantic-settings prefers the environment over the file.
+
+**The site's location is configuration, not a path walk.** `Settings.static_dir` (env
+`STATIC_DIR`) is what `main.py` mounts at `/`. It defaults to the repo's `static/`, so a
+source checkout needs nothing; the image overrides it. It is a pydantic `DirectoryPath`, so a
+wrong value fails at startup instead of 404-ing every page. If you find
+`Path(__file__).parents[3]` at the mount, it is stale.
 
 ## Backend conventions
 

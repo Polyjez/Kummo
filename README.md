@@ -54,6 +54,40 @@ uv sync --all-groups
 uv run --env-file ../.env.local fastapi dev src/kummo/main.py
 ```
 
+## Running in Docker
+
+The image carries the FastAPI backend and the static site, and serves both on port 8000.
+It expects a Supabase project that already exists — the container starts no database and
+applies no migrations, which stay a host-side Supabase CLI task.
+
+```sh
+docker build -t kummo .
+cp .env.prod .env                 # compose reads .env
+docker compose up --build
+```
+
+Or without compose:
+
+```sh
+docker run --rm -p 8000:8000 --env-file .env.prod kummo
+```
+
+| Variable | |
+|---|---|
+| `SUPABASE_URL`, `SUPABASE_API_KEY`, `DATABASE_URL` | required, as everywhere else |
+| `APP_BASE_URL` | where the app is served; used to build the OAuth callback URL |
+| `COOKIE_SECURE` | must be `true` once `APP_BASE_URL` is `https` — the backend refuses to start otherwise |
+| `LOG_LEVEL` | defaults to `INFO` |
+| `STATIC_DIR` | already set to `/app/static` in the image; only change it if you mount the site elsewhere |
+
+**`.env.local` does not work unchanged in a container.** Its `SUPABASE_URL` and
+`DATABASE_URL` name `127.0.0.1`, which inside the container is the container itself, not
+the host's Supabase stack. Cloud values (`.env.prod`) work as they are.
+
+Unlike the local Supabase stack, this image builds and runs fine under Podman
+(`podman build -t kummo .`) — the Podman caveat above is about `supabase start`, not about Kummo's
+own image.
+
 ## Database
 
 The Supabase CLI is the database task runner. `supabase/migrations/` is the single DDL chain —
